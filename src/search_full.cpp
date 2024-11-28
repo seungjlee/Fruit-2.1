@@ -60,7 +60,7 @@ static const bool ExtendSingleReply = true; // true
 
 // history pruning
 
-static /* const */ bool UseHistory = true;
+static /* const */ bool UseHistory = false;
 static const int HistoryDepth = 3;
 static const int HistoryMoveNb = 3;
 static /* const */ int HistoryValue = 9830; // 60%
@@ -202,6 +202,7 @@ void search_full_init(list_t * list, board_t * board) {
 // search_full_root()
 
 int search_full_root(list_t * list, board_t * board, int depth, int search_type) {
+
 
    int value;
 
