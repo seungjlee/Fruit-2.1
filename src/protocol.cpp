@@ -87,9 +87,11 @@ static void init() {
 
       Init = true;
 
+#ifdef USE_OPENING_BOOK
       if (option_get_bool("OwnBook")) {
          book_open(option_get_string("BookFile"));
       }
+#endif
 
       trans_alloc(Trans);
 
