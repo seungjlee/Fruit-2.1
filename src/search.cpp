@@ -30,7 +30,7 @@
 static const bool UseCpuTime = false; // false
 static const bool UseEvent = true; // true
 
-static const bool UseShortSearch = true;
+static const bool UseShortSearch = false;
 static const int ShortSearchDepth = 2;
 
 static const bool DispBest = false; // true
