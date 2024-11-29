@@ -111,29 +111,18 @@ void trans_init(trans_t * trans) {
 
 // trans_alloc()
 void trans_alloc(trans_t * trans) {
-    uint32 size, target;
+   uint32 size = 2 * 1024 * 1024;
+   size /= sizeof(entry_t);
 
-    ASSERT(trans!=NULL);
+   // Need to investigate if this is really necessary. Note the "HACK" below.
+   ASSERT(size!=0&&(size&(size-1))==0); // power of 2
 
-    // Set a smaller hash size (e.g., 1 MB)
-    target = 1 * 1024 * 1024; // 1 MB
+   trans->size = size + (ClusterSize - 1); // HACK to avoid testing for end of table
+   trans->mask = size - 1;
 
-    for (size = 1; size != 0 && size <= target; size *= 2)
-        ;
+   trans->table = (entry_t *) my_malloc(trans->size*sizeof(entry_t));
 
-    size /= 2;
-    ASSERT(size>0&&size<=target);
-
-    // Allocate table
-    size /= sizeof(entry_t);
-    ASSERT(size!=0&&(size&(size-1))==0); // power of 2
-
-    trans->size = size + (ClusterSize - 1); // HACK to avoid testing for end of table
-    trans->mask = size - 1;
-
-    trans->table = (entry_t *) my_malloc(trans->size*sizeof(entry_t));
-
-    trans_clear(trans);
+   trans_clear(trans);
 }
 
 // trans_free()
