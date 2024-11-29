@@ -30,14 +30,16 @@
 static const bool UseCpuTime = false; // false
 static const bool UseEvent = true; // true
 
+#ifdef SHORT_SEARCH_OPTION
 static const bool UseShortSearch = false;
 static const int ShortSearchDepth = 2;
+#endif
 
-static const bool DispBest = false; // true
-static const bool DispDepthStart = false; // true
-static const bool DispDepthEnd = false; // true
-static const bool DispRoot = false; // true
-static const bool DispStat = false; // true
+static constexpr bool DispBest = false; // true
+static constexpr bool DispDepthStart = false; // true
+static constexpr bool DispDepthEnd = false; // true
+static constexpr bool DispRoot = false; // true
+static constexpr bool DispStat = false; // true
 
 static const bool UseEasy = true; // singular move
 static const int EasyThreshold = 150;
@@ -207,9 +209,14 @@ void search() {
 
       board_copy(SearchCurrent->board,SearchInput->board);
 
-      if (UseShortSearch && depth <= ShortSearchDepth) {
+#ifdef SHORT_SEARCH_OPTION
+      if (UseShortSearch && depth <= ShortSearchDepth)
+      {
          search_full_root(SearchRoot->list,SearchCurrent->board,depth,SearchShort);
-      } else {
+      }
+      else
+#endif
+      {
          search_full_root(SearchRoot->list,SearchCurrent->board,depth,SearchNormal);
       }
 
