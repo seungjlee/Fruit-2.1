@@ -62,7 +62,9 @@ void gen_moves(list_t * list, const board_t * board) {
 
    add_moves(list,board);
 
+#ifdef ENABLE_EN_PASSANT_CAPTURES
    add_en_passant_captures(list,board);
+#endif
    add_castle_moves(list,board);
 
    // debug
@@ -80,7 +82,9 @@ void gen_captures(list_t * list, const board_t * board) {
    LIST_CLEAR(list);
 
    add_captures(list,board);
+#ifdef ENABLE_EN_PASSANT_CAPTURES
    add_en_passant_captures(list,board);
+#endif
 
    // debug
 
