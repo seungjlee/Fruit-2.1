@@ -15,7 +15,7 @@
 
 // constants
 
-const int MultiPVMax = 10;
+const int MultiPVMax = 4;
 
 const int DepthMax = 64;
 const int HeightMax = 256;
