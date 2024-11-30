@@ -17,7 +17,7 @@
 
 const int MultiPVMax = 10;
 
-const int DepthMax = 96;
+const int DepthMax = 60;
 const int HeightMax = 256;
 
 const int SearchNormal = 0;
