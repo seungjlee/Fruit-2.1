@@ -112,26 +112,10 @@ void trans_init(trans_t * trans) {
 // trans_alloc()
 
 void trans_alloc(trans_t * trans) {
-
-   uint32 size, target;
-
-   ASSERT(trans!=NULL);
-
-   // calculate size
-
-   target = option_get_int("Hash");
-   if (target < 4) target = 16;
-   target *= 1024 * 1024;
-
-   for (size = 1; size != 0 && size <= target; size *= 2)
-      ;
-
-   size /= 2;
-   ASSERT(size>0&&size<=target);
-
-   // allocate table
-
+   uint32 size = 2 * 1024 * 1024;
    size /= sizeof(entry_t);
+
+   // Need to investigate if this is really necessary. Note the "HACK" below.
    ASSERT(size!=0&&(size&(size-1))==0); // power of 2
 
    trans->size = size + (ClusterSize - 1); // HACK to avoid testing for end of table
