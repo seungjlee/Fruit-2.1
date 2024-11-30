@@ -33,11 +33,11 @@ static const bool UseCpuTime = false; // false
 static const bool UseShortSearch = true;
 static const int ShortSearchDepth = 1;
 
-static const bool DispBest = true; // true
-static const bool DispDepthStart = true; // true
-static const bool DispDepthEnd = true; // true
-static const bool DispRoot = true; // true
-static const bool DispStat = true; // true
+static constexpr bool DispBest = false; // true
+static constexpr bool DispDepthStart = false; // true
+static constexpr bool DispDepthEnd = false; // true
+static constexpr bool DispRoot = false; // true
+static constexpr bool DispStat = false; // true
 
 static const int EasyThreshold = 150;
 static const double EasyRatio = 0.20;
@@ -45,7 +45,7 @@ static const double EasyRatio = 0.20;
 static const double EarlyRatio = 0.60;
 
 static const int BadThreshold = 50; // 50
-static const bool UseExtension = true;
+//static const bool UseExtension = true;
 
 // variables
 
@@ -509,7 +509,7 @@ void search_check() {
     && SearchCurrent->time >= SearchInput->time_limit_1
     && !SearchRoot->bad_1
     && !SearchRoot->bad_2
-    && (!UseExtension || SearchRoot->move_pos == 0)) {
+    && (SearchRoot->move_pos == 0)) {
       SearchRoot->flag = true;
    }
 
