@@ -112,7 +112,7 @@ void trans_init(trans_t * trans) {
 // trans_alloc()
 
 void trans_alloc(trans_t * trans) {
-   uint32 size = 2 * 1024 * 1024;
+   uint32 size = 4 * 1024 * 1024;
    size /= sizeof(entry_t);
 
    // Need to investigate if this is really necessary. Note the "HACK" below.
