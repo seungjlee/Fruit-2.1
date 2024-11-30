@@ -15,7 +15,7 @@
 
 // constants
 
-const int DepthMax = 80;
+const int DepthMax = 96;
 const int HeightMax = 256;
 
 const int SearchNormal = 0;
