@@ -7,6 +7,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 #include "board.h"
 #include "book.h"
@@ -24,21 +27,32 @@
 #include "search.h"
 #include "trans.h"
 #include "util.h"
+//#include "sort.h"
+//#include "probe.h"
 
 // constants
 
-#define VERSION "2.1"
+#define VERSION "4.0"
 
 static const double NormalRatio = 1.0;
 static const double PonderRatio = 1.25;
 
 // variables
 
+#ifdef _WIN32
+CRITICAL_SECTION CriticalSection; 
+#else
+pthread_mutex_t CriticalSection=PTHREAD_MUTEX_INITIALIZER;
+#endif
+
+
 static bool Init;
 
 static bool Searching; // search in progress?
 static bool Infinite; // infinite or ponder mode?
 static bool Delay; // postpone "bestmove" in infinite/ponder mode?
+
+//static char * dirptr = "C:/egbb";
 
 // prototypes
 
@@ -55,6 +69,18 @@ static bool string_equal      (const char s1[], const char s2[]);
 static bool string_start_with (const char s1[], const char s2[]);
 
 // functions
+
+void book_parameter() {
+
+    // UCI options
+
+	book_close();
+	if (option_get_bool("OwnBook")) {
+         book_open(option_get_string("BookFile"));
+	}
+
+
+}
 
 // loop()
 
@@ -80,16 +106,19 @@ void loop() {
 // init()
 
 static void init() {
-
+	
    if (!Init) {
 
       // late initialisation
 
       Init = true;
 
-      if (option_get_bool("OwnBook")) {
-         book_open(option_get_string("BookFile"));
-      }
+      NumberThreads=option_get_int("Number of Threads");
+      if(NumberThreads>MaxThreads) NumberThreads=MaxThreads;
+		
+      book_parameter();
+      
+	   //SearchInput->multipv = option_get_int("MultiPV");
 
       trans_alloc(Trans);
 
@@ -101,14 +130,20 @@ static void init() {
 
       pst_init();
       eval_init();
+#ifdef _WIN32
+	  InitializeCriticalSection(&CriticalSection);
+#endif
+	  SearchInput->exit_engine = false;
+	  start_suspend_threads();
    }
+
 }
 
 // event()
 
 void event() {
 
-   while (!SearchInfo->stop && input_available()) loop_step();
+   while (!SearchInfo[0]->stop && input_available()) loop_step();
 }
 
 // loop_step()
@@ -116,10 +151,17 @@ void event() {
 static void loop_step() {
 
    char string[65536];
+	int ThreadId;
 
    // read a line
 
    get(string,65536);
+
+/*	FILE *fp;
+   fp=fopen("toga.log","a+");
+   fprintf(fp,"%s\n",string);
+   fclose(fp); */
+
 
    // parse
 
@@ -179,12 +221,19 @@ static void loop_step() {
       ASSERT(!Searching);
       ASSERT(!Delay);
 
+	  SearchInput->exit_engine = true;
+	  resume_threads();
       exit(EXIT_SUCCESS);
 
    } else if (string_start_with(string,"setoption ")) {
 
       if (!Searching && !Delay) {
          parse_setoption(string);
+		 pawn_parameter();
+		 material_parameter();
+		 book_parameter();
+		 pst_init();
+		 eval_parameter();
       } else {
          ASSERT(false);
       }
@@ -193,7 +242,10 @@ static void loop_step() {
 
       if (Searching) {
 
-         SearchInfo->stop = true;
+			for (ThreadId = 0; ThreadId < NumberThreads; ThreadId++){
+				SearchInfo[ThreadId]->stop = true;
+			}
+
          Infinite = false;
 
       } else if (Delay) {
@@ -207,8 +259,8 @@ static void loop_step() {
       ASSERT(!Searching);
       ASSERT(!Delay);
 
-      send("id name Fruit " VERSION);
-      send("id author Fabien Letouzey");
+      send("id name Toga II " VERSION);
+      send("id author Jerry Donald Watson, Thomas Gaksch and Fabien Letouzey");
 
       option_list();
 
@@ -235,6 +287,7 @@ static void parse_go(char string[]) {
    double binc, btime, movetime, winc, wtime;
    double time, inc;
    double time_max, alloc;
+	int ThreadId;
 
    // init
 
@@ -353,6 +406,14 @@ static void parse_go(char string[]) {
 
    // depth limit
 
+   // JAS
+   int option_depth = 0;
+   option_depth = option_get_int("Search Depth");
+   if (option_depth > 0) {
+   	  depth = option_depth;
+   }
+   // JAS end
+
    if (depth >= 0) {
       SearchInput->depth_is_limited = true;
       SearchInput->depth_limit = depth;
@@ -371,8 +432,16 @@ static void parse_go(char string[]) {
       inc = binc;
    }
 
-   if (movestogo <= 0 || movestogo > 30) movestogo = 30; // HACK
+   if (movestogo <= 0 || movestogo > 30) movestogo = 30; // HACK was 30
    if (inc < 0.0) inc = 0.0;
+
+   // JAS
+   int option_movetime = 0;
+   option_movetime = option_get_int("Search Time");
+   if (option_movetime > 0) {
+   	  movetime = option_movetime;
+   }
+   // JAS end
 
    if (movetime >= 0.0) {
 
@@ -414,7 +483,9 @@ static void parse_go(char string[]) {
    Delay = false;
 
    search();
-   search_update_current();
+	for (ThreadId = 0; ThreadId < NumberThreads; ThreadId++){
+		search_update_current(ThreadId);
+	}
 
    ASSERT(Searching);
    ASSERT(!Delay);
@@ -521,6 +592,23 @@ static void parse_setoption(char string[]) {
          trans_alloc(Trans);
       }
    }
+   
+   if (Init && my_string_equal(name,"Number of Threads")) { // Init => already started
+     
+     ASSERT(!Searching);
+     
+     if (option_get_int("Number of Threads")!= NumberThreads) {
+       exit_threads();
+       pawn_free();
+       material_free();
+       NumberThreads=option_get_int("Number of Threads");
+       if(NumberThreads>MaxThreads) NumberThreads=MaxThreads;
+       pawn_alloc();
+       material_alloc();
+       search_clear();
+       start_suspend_threads();
+     }
+   }
 }
 
 // send_best_move()
@@ -532,16 +620,24 @@ static void send_best_move() {
    char move_string[256];
    char ponder_string[256];
    int move;
+   int ThreadId, bestThreadId;
    mv_t * pv;
 
    // info
 
    // HACK: should be in search.cpp
 
-   time = SearchCurrent->time;
-   speed = SearchCurrent->speed;
-   cpu = SearchCurrent->cpu;
-   node_nb = SearchCurrent->node_nb;
+   time = SearchCurrent[0]->time;
+   speed = 0;
+   for (ThreadId = 0; ThreadId < NumberThreads; ThreadId++){
+		speed += SearchCurrent[ThreadId]->speed;
+   }
+   cpu = SearchCurrent[0]->cpu;
+
+   node_nb = 0;
+   for (ThreadId = 0; ThreadId < NumberThreads; ThreadId++){
+		node_nb += SearchCurrent[ThreadId]->node_nb;
+   }
 
    send("info time %.0f nodes " S64_FORMAT " nps %.0f cpuload %.0f",time*1000.0,node_nb,speed,cpu*1000.0);
 
@@ -551,10 +647,26 @@ static void send_best_move() {
 
    // best move
 
-   move = SearchBest->move;
-   pv = SearchBest->pv;
+   bestThreadId = 0;
+   for (ThreadId = 1; ThreadId < NumberThreads; ThreadId++){
+	   if (SearchBest[bestThreadId][0].depth < SearchBest[ThreadId][0].depth ||
+		     (SearchBest[bestThreadId][0].depth == SearchBest[ThreadId][0].depth &&
+			  SearchBest[bestThreadId][0].value < SearchBest[ThreadId][0].value)){
+		   bestThreadId = ThreadId;
+	   }
+   }
+   move = SearchBest[bestThreadId][0].move;
+   pv = SearchBest[bestThreadId][0].pv;
 
    move_to_string(move,move_string,256);
+
+  /* move_to_string(SearchBest[1][0].move,ponder_string,256);
+   if (SearchBest[0][0].move != SearchBest[1][0].move){
+	   FILE *fp;
+	   fp=fopen("toga.log","a+");
+	   fprintf(fp,"move: %s depth: %d value: %d move: %s depth: %d value: %d\n",move_string,SearchBest[0][0].depth, SearchBest[0][0].value, ponder_string,SearchBest[1][0].depth, SearchBest[1][0].value);
+	   fclose(fp); 
+   }*/
 
    if (pv[0] == move && move_is_ok(pv[1])) {
       move_to_string(pv[1],ponder_string,256);

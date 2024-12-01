@@ -25,6 +25,7 @@ extern sint16 Pst[12][64][StageNb];
 // functions
 
 extern void pst_init ();
+extern void pst_parameter ();
 
 #endif // !defined PST_H
 

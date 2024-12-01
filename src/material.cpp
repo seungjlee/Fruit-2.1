@@ -14,11 +14,12 @@
 #include "protocol.h"
 #include "square.h"
 #include "util.h"
+#include "search.h"
 
 // constants
 
 static const bool UseTable = true;
-static const uint32 TableSize = 256; // 4kB
+static const uint32 TableSize = 256; // was 256 4kB tried 16384
 
 static const int PawnPhase   = 0;
 static const int KnightPhase = 1;
@@ -30,21 +31,29 @@ static const int TotalPhase = PawnPhase * 16 + KnightPhase * 4 + BishopPhase * 4
 
 // constants and variables
 
+#define ABS(x) ((x)<0?-(x):(x))
+
+static /* const */ int OpeningExchangePenalty = 20; /* Thomas penalty exchange piece pawn */
+static /* const */ int EndgameExchangePenalty = 20;
+
 static /* const */ int MaterialWeight = 256; // 100%
 
-static const int PawnOpening   = 80; // was 100
+static const int PawnOpening   = 75; /// J Donald's setting
 static const int PawnEndgame   = 90; // was 100
 static const int KnightOpening = 325;
-static const int KnightEndgame = 325;
+static const int KnightEndgame = 310; // J Donald's settings, was 315
 static const int BishopOpening = 325;
-static const int BishopEndgame = 325;
-static const int RookOpening   = 500;
-static const int RookEndgame   = 500;
-static const int QueenOpening  = 1000;
-static const int QueenEndgame  = 1000;
+static const int BishopEndgame = 320; // Chris Formula's setting was 315
+static const int RookOpening   = 490; // J Donald's settings, was 500
+static const int RookEndgame   = 510; // J Donald's settings, was 500
+static const int QueenOpening  = 975; // was 1000
+static const int QueenEndgame  = 1000; 
 
-static const int BishopPairOpening = 50;
-static const int BishopPairEndgame = 50;
+static const int BishopPairOpening = 45; // JD setting; was 50
+static const int BishopPairEndgame = 65; // JD setting; was 50
+
+static /* const */ int KingPawnBonus = 30; // Endgame material adjustments
+static /* const */ int RookPawnPenalty = 10;
 
 // types
 
@@ -63,7 +72,7 @@ struct material_t {
 
 // variables
 
-static material_t Material[1];
+static material_t Material[MaxThreads][1];
 
 // prototypes
 
@@ -73,53 +82,91 @@ static void material_comp_info (material_info_t * info, const board_t * board);
 
 // material_init()
 
-void material_init() {
+void material_parameter() {
 
    // UCI options
 
    MaterialWeight = (option_get_int("Material") * 256 + 50) / 100;
+   OpeningExchangePenalty = option_get_int("Toga Exchange Bonus");
+   EndgameExchangePenalty = OpeningExchangePenalty; 
+   
+   // Endgame settings
+   KingPawnBonus = option_get_int("Toga King Pawn Endgame Bonus");
+   RookPawnPenalty = option_get_int("Toga Rook Pawn Endgame Penalty");
+
+}
+
+void material_init() {
+
+	int ThreadId;
+
+   // UCI options
+
+   material_parameter();
 
    // material table
 
-   Material->size = 0;
-   Material->mask = 0;
-   Material->table = NULL;
+	for (ThreadId = 0; ThreadId < NumberThreads; ThreadId++){
+		Material[ThreadId]->size = 0;
+		Material[ThreadId]->mask = 0;
+		Material[ThreadId]->table = NULL;
+	}
 }
 
 // material_alloc()
 
 void material_alloc() {
 
+	int ThreadId;
+
    ASSERT(sizeof(entry_t)==16);
 
    if (UseTable) {
 
-      Material->size = TableSize;
-      Material->mask = TableSize - 1;
-      Material->table = (entry_t *) my_malloc(Material->size*sizeof(entry_t));
+		for (ThreadId = 0; ThreadId < NumberThreads; ThreadId++){
+			Material[ThreadId]->size = TableSize;
+			Material[ThreadId]->mask = TableSize - 1;
+			Material[ThreadId]->table = (entry_t *) my_malloc((uint64) Material[ThreadId]->size*sizeof(entry_t));
 
-      material_clear();
+			material_clear(ThreadId);
+		}
+   }
+}
+
+// material_free()
+
+void material_free() {
+
+	int ThreadId;
+
+   ASSERT(sizeof(entry_t)==16);
+
+   if (UseTable) {
+
+		for (ThreadId = 0; ThreadId < NumberThreads; ThreadId++){
+		  my_free(Material[ThreadId]->table);
+		}
    }
 }
 
 // material_clear()
 
-void material_clear() {
+void material_clear(int ThreadId) {
 
-   if (Material->table != NULL) {
-      memset(Material->table,0,Material->size*sizeof(entry_t));
+   if (Material[ThreadId]->table != NULL) {
+      memset(Material[ThreadId]->table,0,Material[ThreadId]->size*sizeof(entry_t));
    }
 
-   Material->used = 0;
-   Material->read_nb = 0;
-   Material->read_hit = 0;
-   Material->write_nb = 0;
-   Material->write_collision = 0;
+   Material[ThreadId]->used = 0;
+   Material[ThreadId]->read_nb = 0;
+   Material[ThreadId]->read_hit = 0;
+   Material[ThreadId]->write_nb = 0;
+   Material[ThreadId]->write_collision = 0;
 }
 
 // material_get_info()
 
-void material_get_info(material_info_t * info, const board_t * board) {
+void material_get_info(material_info_t * info, const board_t * board, int ThreadId) {
 
    uint64 key;
    entry_t * entry;
@@ -131,16 +178,16 @@ void material_get_info(material_info_t * info, const board_t * board) {
 
    if (UseTable) {
 
-      Material->read_nb++;
+      Material[ThreadId]->read_nb++;
 
       key = board->material_key;
-      entry = &Material->table[KEY_INDEX(key)&Material->mask];
+      entry = &Material[ThreadId]->table[KEY_INDEX(key)&Material[ThreadId]->mask];
 
       if (entry->lock == KEY_LOCK(key)) {
 
          // found
 
-         Material->read_hit++;
+         Material[ThreadId]->read_hit++;
 
          *info = *entry;
 
@@ -156,12 +203,12 @@ void material_get_info(material_info_t * info, const board_t * board) {
 
    if (UseTable) {
 
-      Material->write_nb++;
+      Material[ThreadId]->write_nb++;
 
       if (entry->lock == 0) { // HACK: assume free entry
-         Material->used++;
+         Material[ThreadId]->used++;
       } else {
-         Material->write_collision++;
+         Material[ThreadId]->write_collision++;
       }
 
       *entry = *info;
@@ -184,6 +231,8 @@ static void material_comp_info(material_info_t * info, const board_t * board) {
    int mul[ColourNb];
    int phase;
    int opening, endgame;
+   int owf,obf,ewf,ebf; /* Thomas */
+   int WhiteMinors,BlackMinors,WhiteMajors,BlackMajors;
 
    ASSERT(info!=NULL);
    ASSERT(board!=NULL);
@@ -624,29 +673,66 @@ static void material_comp_info(material_info_t * info, const board_t * board) {
    opening = 0;
    endgame = 0;
 
+   /* Thomas */
+   owf = wn*KnightOpening + wb*BishopOpening + wr*RookOpening + wq*QueenOpening; 
+   opening += owf;
    opening += wp * PawnOpening;
-   opening += wn * KnightOpening;
-   opening += wb * BishopOpening;
-   opening += wr * RookOpening;
-   opening += wq * QueenOpening;
 
+   obf = bn*KnightOpening + bb*BishopOpening + br*RookOpening + bq*QueenOpening; 
+   opening -= obf;
    opening -= bp * PawnOpening;
-   opening -= bn * KnightOpening;
-   opening -= bb * BishopOpening;
-   opening -= br * RookOpening;
-   opening -= bq * QueenOpening;
 
+   ewf = wn*KnightEndgame + wb*BishopEndgame + wr*RookEndgame + wq*QueenEndgame;  
    endgame += wp * PawnEndgame;
-   endgame += wn * KnightEndgame;
-   endgame += wb * BishopEndgame;
-   endgame += wr * RookEndgame;
-   endgame += wq * QueenEndgame;
+   endgame += ewf;
 
+   ebf = bn*KnightEndgame + bb*BishopEndgame + br*RookEndgame + bq*QueenEndgame; 
    endgame -= bp * PawnEndgame;
-   endgame -= bn * KnightEndgame;
-   endgame -= bb * BishopEndgame;
-   endgame -= br * RookEndgame;
-   endgame -= bq * QueenEndgame;
+   endgame -= ebf;
+
+/*   WhiteMinors = wn + wb;
+   BlackMinors = bn + bb;
+   WhiteMajors = 2*wq + wr;
+   BlackMajors = 2*bq + br; */
+
+   // Trade Bonus
+
+   if (owf > obf && bp > wp){
+	   opening += OpeningExchangePenalty;
+	   endgame += OpeningExchangePenalty;
+   } 
+   else if (obf > owf && wp > bp){
+	   opening -= OpeningExchangePenalty;
+	   endgame -= OpeningExchangePenalty; 
+   } 
+
+/*   if (WhiteMinors != BlackMinors) {
+		if (WhiteMajors == BlackMajors) {
+		  if (WhiteMinors > BlackMinors){
+			opening += OpeningExchangePenalty;
+			endgame += OpeningExchangePenalty;
+		  }
+		  else{
+			opening -= OpeningExchangePenalty;
+			endgame -= OpeningExchangePenalty;
+		  }
+		}
+	} */
+   
+   // Adjust knight and rook material values
+   // White
+   /* opening += wr * (5 - wp) * PawnOpening/8;
+   endgame += wr * (5 - wp) * PawnEndgame/8;
+
+   opening += wn * (wp - 5) * PawnOpening/16;
+   endgame += wn * (wp - 5) * PawnEndgame/16;
+   
+   // Black
+   opening -= br * (5 - bp) * PawnOpening/8;
+   endgame -= br * (5 - bp) * PawnEndgame/8; 
+
+   opening -= bn * (bp - 5) * PawnOpening/16;
+   endgame -= bn * (bp - 5) * PawnEndgame/16; */
 
    // bishop pair
 
@@ -659,9 +745,35 @@ static void material_comp_info(material_info_t * info, const board_t * board) {
       opening -= BishopPairOpening;
       endgame -= BishopPairEndgame;
    }
+   
+   // JD: King and Pawn Endgames (usually winning)
+   
+   if (wt - wp == 0 && bt - bp == 0){
+          
+      opening = (wp-bp)*150;
+      endgame = (wp-bp)*150;
+      
+   }
+   
+   // Rook and Pawn Endgames (drawish)
+   if (wt - wp == 1 && bt - bp == 1 && wr == 1 && br == 1){
+      if (wp > bp){
+         endgame -= RookPawnPenalty; // note - sign
+      }
+      if (bp > wp){
+         endgame += RookPawnPenalty;
+      }
+   } 
+   
+   // Piece combo: Queen + Knight against Queen + Bishop
+   
+   if (wt-wp == 2 && bt-wp == 2 && wq == 1 && bq == 1 && wn == 1 && bb == 1)
+       endgame += 10;
+       
+   else if (wt-wp == 2 && bt-wp == 2 && wq == 1 && bq == 1 && wb == 1 && bn == 1)
+       endgame -= 10;
 
    // store info
-
    info->recog = recog;
    info->flags = flags;
    for (colour = 0; colour < ColourNb; colour++) info->cflags[colour] = cflags[colour];

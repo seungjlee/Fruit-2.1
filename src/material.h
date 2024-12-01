@@ -46,16 +46,21 @@ struct material_info_t {
    sint16 phase;
    sint16 opening;
    sint16 endgame;
+   //int wt;    /* Thomas */
+   //int bt;
+   //sint16 pv[ColourNb]; /* Material without pawn and king */
 };
 
 // functions
 
 extern void material_init     ();
+extern void material_parameter();
 
 extern void material_alloc    ();
-extern void material_clear    ();
+extern void material_free    ();
+extern void material_clear    (int ThreadId);
 
-extern void material_get_info (material_info_t * info, const board_t * board);
+extern void material_get_info (material_info_t * info, const board_t * board, int ThreadId);
 
 #endif // !defined MATERIAL_H
 

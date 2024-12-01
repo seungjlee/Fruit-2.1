@@ -23,13 +23,13 @@
 
 static const int KillerNb = 2;
 
-static const int HistorySize = 12 * 64;
-static const int HistoryMax = 16384;
+static const int HistorySize = 12 * 64 /** 64*/;
+static const int HistoryMax = 2048;
 
 static const int TransScore   = +32766;
 static const int GoodScore    =  +4000;
 static const int KillerScore  =     +4;
-static const int HistoryScore = -24000;
+static const int HistoryScore = -14000;
 static const int BadScore     = -28000;
 
 static const int CODE_SIZE = 256;
@@ -78,55 +78,68 @@ static int PosCaptureQS;
 
 static int Code[CODE_SIZE];
 
-static uint16 Killer[HeightMax][KillerNb];
+static uint16 Killer[MaxThreads][HeightMax][KillerNb];
+static uint16 Refutation[MaxThreads][12][64][64];
 
-static uint16 History[HistorySize];
-static uint16 HistHit[HistorySize];
-static uint16 HistTot[HistorySize];
+static sint16 History[MaxThreads][HistorySize];
+static uint16 HistHit[MaxThreads][HistorySize];
+static uint16 HistTot[MaxThreads][HistorySize];
 
 // prototypes
 
 static void note_captures     (list_t * list, const board_t * board);
-static void note_quiet_moves  (list_t * list, const board_t * board);
+static void note_quiet_moves  (list_t * list, const board_t * board, int ThreadId);
 static void note_moves_simple (list_t * list, const board_t * board);
 static void note_mvv_lva      (list_t * list, const board_t * board);
 
-static int  move_value        (int move, const board_t * board, int height, int trans_killer);
+static int  move_value        (int move, const board_t * board, int height, int trans_killer, int ThreadId);
 static int  capture_value     (int move, const board_t * board);
-static int  quiet_move_value  (int move, const board_t * board);
+static int  quiet_move_value  (int move, const board_t * board, int ThreadId);
 static int  move_value_simple (int move, const board_t * board);
 
-static int  history_prob      (int move, const board_t * board);
+static int  history_prob      (int move, const board_t * board, int ThreadId);
 
 static bool capture_is_good   (int move, const board_t * board);
 
 static int  mvv_lva           (int move, const board_t * board);
 
-static int  history_index     (int move, const board_t * board);
+static uint16  history_index  (int move, const board_t * board);
 
 // functions
 
 // sort_init()
 
-void sort_init() {
+void sort_init(int ThreadId) {
 
-   int i, height;
+   int i, j, k, height;
    int pos;
+   //static bool first_time = true;
 
    // killer
 
    for (height = 0; height < HeightMax; height++) {
-      for (i = 0; i < KillerNb; i++) Killer[height][i] = MoveNone;
+      for (i = 0; i < KillerNb; i++) Killer[ThreadId][height][i] = MoveNone;
+   }
+   
+   // refutation table
+   
+   for (i = 0; i < 12; i++) {
+      for (j = 0; j < 64; j++){
+      	for (k = 0; k < 64; k++)Refutation[ThreadId][i][j][k] = MoveNone;
+      } 
    }
 
    // history
 
-   for (i = 0; i < HistorySize; i++) History[i] = 0;
+   for (i = 0; i < HistorySize; i++) History[ThreadId][i] = 0;
 
-   for (i = 0; i < HistorySize; i++) {
-      HistHit[i] = 1;
-      HistTot[i] = 1;
-   }
+   //if (first_time){
+	   for (i = 0; i < HistorySize; i++) {
+		  HistHit[ThreadId][i] = 1;
+		  HistTot[ThreadId][i] = 1;
+	   }
+	//   first_time = false;
+   //}
 
    // Code[]
 
@@ -168,29 +181,42 @@ void sort_init() {
 
 // sort_init()
 
-void sort_init(sort_t * sort, board_t * board, const attack_t * attack, int depth, int height, int trans_killer) {
+void sort_init(sort_t * sort, board_t * board, const attack_t * attack, int depth, int height, int trans_killer, int last_move, int ThreadId) {
 
+   int piece, from_64, to_64;
+   int from, to;
+   
    ASSERT(sort!=NULL);
    ASSERT(board!=NULL);
    ASSERT(attack!=NULL);
    ASSERT(depth_is_ok(depth));
    ASSERT(height_is_ok(height));
    ASSERT(trans_killer==MoveNone||move_is_ok(trans_killer));
+   ASSERT(move_is_ok(last_move));
+   
+   from = MOVE_FROM(last_move);
+   to = MOVE_TO(last_move);
+   
+   piece = PIECE_TO_12(board->square[to]); // use "to" since move is already made
+   from_64 = SQUARE_TO_64(from);
+   to_64 = SQUARE_TO_64(to);
 
    sort->board = board;
    sort->attack = attack;
 
    sort->depth = depth;
    sort->height = height;
+   sort->capture_nb = 0;
 
    sort->trans_killer = trans_killer;
-   sort->killer_1 = Killer[sort->height][0];
-   sort->killer_2 = Killer[sort->height][1];
-
+   sort->killer_1 = Killer[ThreadId][sort->height][0];
+   sort->killer_2 = Killer[ThreadId][sort->height][1];
+   sort->refutation_move = Refutation[ThreadId][piece][from_64][to_64];
+   
    if (ATTACK_IN_CHECK(sort->attack)) {
 
       gen_legal_evasions(sort->list,sort->board,sort->attack);
-      note_moves(sort->list,sort->board,sort->height,sort->trans_killer);
+      note_moves(sort->list,sort->board,sort->height,sort->trans_killer,ThreadId);
       list_sort(sort->list);
 
       sort->gen = PosLegalEvasion + 1;
@@ -207,7 +233,7 @@ void sort_init(sort_t * sort, board_t * board, const attack_t * attack, int dept
 
 // sort_next()
 
-int sort_next(sort_t * sort) {
+int sort_next(sort_t * sort, int ThreadId) {
 
    int move;
    int gen;
@@ -222,6 +248,7 @@ int sort_next(sort_t * sort) {
 
          move = LIST_MOVE(sort->list,sort->pos);
          sort->value = 16384; // default score
+		 sort->valuePV = 16384;
          sort->pos++;
 
          ASSERT(move!=MoveNone);
@@ -258,7 +285,7 @@ int sort_next(sort_t * sort) {
             ASSERT(!capture_is_good(move,sort->board));
 
             ASSERT(move!=sort->trans_killer);
-            if (!pseudo_is_legal(move,sort->board)) continue;
+			if (!pseudo_is_legal(move,sort->board)) continue;
 
          } else if (sort->test == TEST_KILLER) {
 
@@ -275,9 +302,10 @@ int sort_next(sort_t * sort) {
             if (move == sort->trans_killer) continue;
             if (move == sort->killer_1) continue;
             if (move == sort->killer_2) continue;
-            if (!pseudo_is_legal(move,sort->board)) continue;
+            if (move == sort->refutation_move) continue;
+			if (!pseudo_is_legal(move,sort->board)) continue;
 
-            sort->value = history_prob(move,sort->board);
+            sort->value = history_prob(move,sort->board,ThreadId);
 
          } else {
 
@@ -306,7 +334,8 @@ int sort_next(sort_t * sort) {
 
       } else if (gen == GEN_GOOD_CAPTURE) {
 
-         gen_captures(sort->list,sort->board);
+	     gen_captures(sort->list,sort->board);
+		 sort->capture_nb = LIST_SIZE(sort->list); 
          note_mvv_lva(sort->list,sort->board);
          list_sort(sort->list);
 
@@ -325,13 +354,17 @@ int sort_next(sort_t * sort) {
          LIST_CLEAR(sort->list);
          if (sort->killer_1 != MoveNone) LIST_ADD(sort->list,sort->killer_1);
          if (sort->killer_2 != MoveNone) LIST_ADD(sort->list,sort->killer_2);
-
+         if (sort->refutation_move != MoveNone 
+		    && sort->refutation_move != sort->killer_1
+			&& sort->refutation_move != sort->killer_2) 
+			LIST_ADD(sort->list,sort->refutation_move);
+		 
          sort->test = TEST_KILLER;
 
       } else if (gen == GEN_QUIET) {
 
          gen_quiet_moves(sort->list,sort->board);
-         note_quiet_moves(sort->list,sort->board);
+         note_quiet_moves(sort->list,sort->board,ThreadId);
          list_sort(sort->list);
 
          sort->test = TEST_QUIET;
@@ -467,9 +500,47 @@ int sort_next_qs(sort_t * sort) {
 
 // good_move()
 
-void good_move(int move, const board_t * board, int depth, int height) {
+void good_move(int move, const board_t * board, int depth, int height, int ThreadId) {
 
-   int index;
+   uint16 index;
+   int i;
+
+   ASSERT(move_is_ok(move));
+   ASSERT(board!=NULL);
+   ASSERT(depth_is_ok(depth));
+   ASSERT(height_is_ok(height));
+
+
+   if (move_is_tactical(move,board)) return;
+
+   // killer
+
+   if (Killer[ThreadId][height][0] != move) {
+      Killer[ThreadId][height][1] = Killer[ThreadId][height][0];
+      Killer[ThreadId][height][0] = move;
+   }
+
+   ASSERT(Killer[ThreadId][height][0]==move);
+   ASSERT(Killer[ThreadId][height][1]!=move);
+   
+   // history
+
+   index = history_index(move,board);
+
+   History[ThreadId][index] += HISTORY_INC(depth);
+
+   if (History[ThreadId][index] >= HistoryMax) {
+      for (i = 0; i < HistorySize; i++) {
+         History[ThreadId][i] = (History[ThreadId][i] + 1) / 2;
+      }
+   } 
+}
+
+// bad_move()
+
+void bad_move(int move, const board_t * board, int depth, int height, int ThreadId) {
+
+   uint16 index;
    int i;
 
    ASSERT(move_is_ok(move));
@@ -479,34 +550,51 @@ void good_move(int move, const board_t * board, int depth, int height) {
 
    if (move_is_tactical(move,board)) return;
 
-   // killer
-
-   if (Killer[height][0] != move) {
-      Killer[height][1] = Killer[height][0];
-      Killer[height][0] = move;
-   }
-
-   ASSERT(Killer[height][0]==move);
-   ASSERT(Killer[height][1]!=move);
-
    // history
 
    index = history_index(move,board);
 
-   History[index] += HISTORY_INC(depth);
+   History[ThreadId][index] -= depth;
 
-   if (History[index] >= HistoryMax) {
+   if (History[ThreadId][index] >= HistoryMax) {
       for (i = 0; i < HistorySize; i++) {
-         History[i] = (History[i] + 1) / 2;
+         History[ThreadId][i] = (History[ThreadId][i] + 1) / 2;
       }
-   }
+   } 
 }
+
+// refutation_update()
+
+void refutation_update(int best_move, int last_move, const board_t * board, int ThreadId) {
+
+   int piece, from_64, to_64;
+   int from, to;
+   
+   ASSERT(board!=NULL);
+   ASSERT(move_is_ok(move));
+   ASSERT(move_is_ok(last_move));
+   
+   from = MOVE_FROM(last_move);
+   to = MOVE_TO(last_move);
+   
+   piece = PIECE_TO_12(board->square[to]); // use "to" since move is already made
+   from_64 = SQUARE_TO_64(from);
+   to_64 = SQUARE_TO_64(to);
+
+   //if (move_is_tactical(move,board)) return;
+
+   // refutation
+
+   Refutation[ThreadId][piece][from_64][to_64] = best_move;
+   
+}
+   
 
 // history_good()
 
-void history_good(int move, const board_t * board) {
+void history_good(int move, const board_t * board, int ThreadId) {
 
-   int index;
+   uint16 index;
 
    ASSERT(move_is_ok(move));
    ASSERT(board!=NULL);
@@ -517,23 +605,23 @@ void history_good(int move, const board_t * board) {
 
    index = history_index(move,board);
 
-   HistHit[index]++;
-   HistTot[index]++;
-
-   if (HistTot[index] >= HistoryMax) {
-      HistHit[index] = (HistHit[index] + 1) / 2;
-      HistTot[index] = (HistTot[index] + 1) / 2;
+   HistHit[ThreadId][index]++;
+   HistTot[ThreadId][index]++;
+   
+   if (HistTot[ThreadId][index] >= HistoryMax) {
+      HistHit[ThreadId][index] = (HistHit[ThreadId][index] + 1) / 2;
+      HistTot[ThreadId][index] = (HistTot[ThreadId][index] + 1) / 2;
    }
 
-   ASSERT(HistHit[index]<=HistTot[index]);
-   ASSERT(HistTot[index]<HistoryMax);
+   ASSERT(HistHit[ThreadId][index]<=HistTot[ThreadId][index]);
+   ASSERT(HistTot[ThreadId][index]<HistoryMax);
 }
 
 // history_bad()
 
-void history_bad(int move, const board_t * board) {
+void history_bad(int move, const board_t * board, int ThreadId) {
 
-   int index;
+   uint16 index;
 
    ASSERT(move_is_ok(move));
    ASSERT(board!=NULL);
@@ -544,20 +632,38 @@ void history_bad(int move, const board_t * board) {
 
    index = history_index(move,board);
 
-   HistTot[index]++;
-
-   if (HistTot[index] >= HistoryMax) {
-      HistHit[index] = (HistHit[index] + 1) / 2;
-      HistTot[index] = (HistTot[index] + 1) / 2;
+   HistTot[ThreadId][index]++;
+   
+   if (HistTot[ThreadId][index] >= HistoryMax) {
+      HistHit[ThreadId][index] = (HistHit[ThreadId][index] + 1) / 2;
+      HistTot[ThreadId][index] = (HistTot[ThreadId][index] + 1) / 2;
    }
 
-   ASSERT(HistHit[index]<=HistTot[index]);
-   ASSERT(HistTot[index]<HistoryMax);
+   ASSERT(HistHit[ThreadId][index]<=HistTot[ThreadId][index]);
+   ASSERT(HistTot[ThreadId][index]<HistoryMax);
+}
+
+void history_reset(int move, const board_t * board, int ThreadId) {
+
+   uint16 index;
+
+   ASSERT(move_is_ok(move));
+   ASSERT(board!=NULL);
+
+   // history
+
+   index = history_index(move,board);
+
+   HistHit[ThreadId][index] = 1; //HistHit[ThreadId][index]/3 + 1;
+   HistTot[ThreadId][index] = 1; //HistHit[ThreadId][index]/2 + 1;
+
+   ASSERT(HistHit[ThreadId][index]<=HistTot[ThreadId][index]);
+   ASSERT(HistTot[ThreadId][index]<HistoryMax);
 }
 
 // note_moves()
 
-void note_moves(list_t * list, const board_t * board, int height, int trans_killer) {
+void note_moves(list_t * list, const board_t * board, int height, int trans_killer, int ThreadId) {
 
    int size;
    int i, move;
@@ -572,7 +678,7 @@ void note_moves(list_t * list, const board_t * board, int height, int trans_kill
    if (size >= 2) {
       for (i = 0; i < size; i++) {
          move = LIST_MOVE(list,i);
-         list->value[i] = move_value(move,board,height,trans_killer);
+         list->value[i] = move_value(move,board,height,trans_killer,ThreadId);
       }
    }
 }
@@ -599,7 +705,7 @@ static void note_captures(list_t * list, const board_t * board) {
 
 // note_quiet_moves()
 
-static void note_quiet_moves(list_t * list, const board_t * board) {
+static void note_quiet_moves(list_t * list, const board_t * board, int ThreadId) {
 
    int size;
    int i, move;
@@ -612,7 +718,7 @@ static void note_quiet_moves(list_t * list, const board_t * board) {
    if (size >= 2) {
       for (i = 0; i < size; i++) {
          move = LIST_MOVE(list,i);
-         list->value[i] = quiet_move_value(move,board);
+         list->value[i] = quiet_move_value(move,board,ThreadId);
       }
    }
 }
@@ -659,7 +765,7 @@ static void note_mvv_lva(list_t * list, const board_t * board) {
 
 // move_value()
 
-static int move_value(int move, const board_t * board, int height, int trans_killer) {
+static int move_value(int move, const board_t * board, int height, int trans_killer, int ThreadId) {
 
    int value;
 
@@ -673,12 +779,12 @@ static int move_value(int move, const board_t * board, int height, int trans_kil
       value = TransScore;
    } else if (move_is_tactical(move,board)) { // capture or promote
       value = capture_value(move,board);
-   } else if (move == Killer[height][0]) { // killer 1
+   } else if (move == Killer[ThreadId][height][0]) { // killer 1
       value = KillerScore;
-   } else if (move == Killer[height][1]) { // killer 2
-      value = KillerScore - 1;
+   } else if (move == Killer[ThreadId][height][1]) { // killer 2
+      value = KillerScore - 2;
    } else { // quiet move
-      value = quiet_move_value(move,board);
+      value = quiet_move_value(move,board,ThreadId);
    }
 
    return value;
@@ -710,10 +816,10 @@ static int capture_value(int move, const board_t * board) {
 
 // quiet_move_value()
 
-static int quiet_move_value(int move, const board_t * board) {
+static int quiet_move_value(int move, const board_t * board, int ThreadId) {
 
    int value;
-   int index;
+   uint16 index;
 
    ASSERT(move_is_ok(move));
    ASSERT(board!=NULL);
@@ -722,7 +828,7 @@ static int quiet_move_value(int move, const board_t * board) {
 
    index = history_index(move,board);
 
-   value = HistoryScore + History[index];
+   value = HistoryScore + History[ThreadId][index];
    ASSERT(value>=HistoryScore&&value<=KillerScore-4);
 
    return value;
@@ -745,10 +851,10 @@ static int move_value_simple(int move, const board_t * board) {
 
 // history_prob()
 
-static int history_prob(int move, const board_t * board) {
+static int history_prob(int move, const board_t * board, int ThreadId) {
 
    int value;
-   int index;
+   uint16 index;
 
    ASSERT(move_is_ok(move));
    ASSERT(board!=NULL);
@@ -757,10 +863,11 @@ static int history_prob(int move, const board_t * board) {
 
    index = history_index(move,board);
 
-   ASSERT(HistHit[index]<=HistTot[index]);
-   ASSERT(HistTot[index]<HistoryMax);
+   ASSERT(HistHit[ThreadId][index]<=HistTot[ThreadId][index]);
+   ASSERT(HistTot[ThreadId][index]<HistoryMax);
 
-   value = (HistHit[index] * 16384) / HistTot[index];
+   value = (HistHit[ThreadId][index] * 16384) / HistTot[ThreadId][index];
+   
    ASSERT(value>=0&&value<=16384);
 
    return value;
@@ -841,16 +948,17 @@ static int mvv_lva(int move, const board_t * board) {
 
 // history_index()
 
-static int history_index(int move, const board_t * board) {
+static uint16 history_index(int move, const board_t * board) {
 
-   int index;
-
+   uint16 index;
+   
    ASSERT(move_is_ok(move));
    ASSERT(board!=NULL);
 
    ASSERT(!move_is_tactical(move,board));
 
    index = PIECE_TO_12(board->square[MOVE_FROM(move)]) * 64 + SQUARE_TO_64(MOVE_TO(move));
+   //index = PIECE_TO_12(board->square[MOVE_FROM(move)]) * (64*64) + SQUARE_TO_64(MOVE_FROM(move)) * 64 + SQUARE_TO_64(MOVE_TO(move));
 
    ASSERT(index>=0&&index<HistorySize);
 

@@ -18,36 +18,76 @@
 #include "util.h"
 #include "value.h"
 #include "vector.h"
+//#include "probe.h"
+#include "search.h"
 
 // macros
 
 #define THROUGH(piece) ((piece)==Empty)
+#define ABS(x) ((x)<0?-(x):(x))
 
 // constants and variables
+
+const int KnightOutpostMatrix[2][64] = {
+     0,	 0,   0,   0,   0,   0,   0,   0,
+     0,	 0,   0,   0,   0,   0,   0,   0,
+     0,	 0,   0,   0,   0,   0,   0,   0,
+     0,	 2,   5,  10,  10,   5 ,  2,   0,
+     0,	 2,   5,  10,  10,   5,   2,   0,
+     0,	 0,   4,   5,   5,   4,   0,   0,
+     0,	 0,   0,   0,   0,   0,   0,   0,
+     0,	 0,   0,   0,   0,   0,   0,   0,
+
+     0,	 0,   0,   0,   0,   0,   0,   0,
+     0,	 0,   0,   0,   0,   0,   0,   0,
+     0,	 0,   4,   5,   5,   4,   0,   0,
+     0,	 2,   5,  10,  10,   5,   2,   0,
+     0,	 2,   5,  10,  10,   5,   2,   0,
+     0,	 0,   0,   0,   0,   0,   0,   0,
+     0,	 0,   0,   0,   0,   0,   0,   0,
+     0,	 0,   0,   0,   0,   0,   0,   0,
+};
+
+static int lazy_eval_cutoff = 200; /* Thomas */
+static int second_lazy_eval_cutoff = 125; /* JD */
+static bool LazyEval = false; // true
+//static bool KingSafety = false; // true
+//static int KingSafetyMargin = 1600;
+//static bool king_is_safe[ColourNb];
 
 static /* const */ int PieceActivityWeight = 256; // 100%
 static /* const */ int KingSafetyWeight = 256; // 100%
 static /* const */ int PassedPawnWeight = 256; // 100%
 
 static const int KnightUnit = 4;
-static const int BishopUnit = 6;
+static const int BishopUnit = 4; // only forwards
 static const int RookUnit = 7;
-static const int QueenUnit = 13;
+//static const int QueenUnit = 13;
+
+static const int PawnAttack = 25;
 
 static const int MobMove = 1;
 static const int MobAttack = 1;
 static const int MobDefense = 0;
+static const int MobPieceDefense = 1;
 
-static const int KnightMobOpening = 4;
-static const int KnightMobEndgame = 4;
-static const int BishopMobOpening = 5;
-static const int BishopMobEndgame = 5;
-static const int RookMobOpening = 2;
-static const int RookMobEndgame = 4;
-static const int QueenMobOpening = 1;
-static const int QueenMobEndgame = 2;
-static const int KingMobOpening = 0;
-static const int KingMobEndgame = 0;
+static const bool UseMobAttack = true; // JD; from Fruit 3.2.1
+static const int MobPawnAttack = 1; 
+static const int MobMinorAttack = 6;
+static const int MobRookAttack = 10;
+static const int MobQueenAttack = 15;
+static const int MobKingAttack = 30;
+
+// Ryan's speedup of eval_piece().  Posted open source in GambitFruit.  
+// Bishop mobility modified by Jerry Donald
+static const int knight_mob_opening[ 8 + 1] = {-16, -12,  -8,  -4,   0,   4,   8,  12,  16};                         // WHM; slope == KinghtMobOpening == 4
+static const int knight_mob_endgame[ 8 + 1] = {-16, -12,  -8,  -4,   0,   4,   8,  12,  16};                         // WHM; slope == KinghtMobEndgame == 4
+static const int bishop_mob_opening[13 + 1] = {-30, -25, -20, -15, -10,  -5,   0,   5,  10, 15, 20, 25, 30, 35};     // WHM; slope == BishopMobOpening == 5
+static const int bishop_mob_endgame[13 + 1] = {-30, -25, -20, -15, -10,  -5,   0,   5,  10, 15, 20, 25, 30, 35};     // WHM; slope == BishopMobEndgame == 5
+static const int   rook_mob_opening[14 + 1] = {-14, -12, -10,  -8,  -6,  -4,  -2,   0,   2,  4,  6,  8, 10, 12, 14}; // WHM; slope == RookMobOpening == 2
+static const int   rook_mob_endgame[14 + 1] = {-28, -24, -20, -16, -12,  -8,  -4,   0,   4,  8, 12, 16, 20, 24, 28}; // WHM; slope == RookMobEndgame == 4
+static const int   queen_mob_opening[27 + 1] = {-5,  -4,  -3,  -2,  -1,  +0,  +1,  +2,  +3,  +4,  +5,  +6,  +7,  +8,  +9, +10, +11, +12, +13, +14, +15, +16, +17, +18, +19, +20, +21, +22}; // WHM; slope == RookMobOpening == 1
+static const int   queen_mob_endgame[27 + 1] = {-24, -17, -11,  -7,  -3,  +0,  +2,  +4,  +6,  +8, +10, +12, +14, +16, +18, +20, +22, +24, +26, +28, +30, +32, +34, +36, +38, +40, +42, +44,}; // WHM; slope == RookMobEndgame == 4
 
 static const bool UseOpenFile = true;
 static const int RookSemiOpenFileOpening = 10;
@@ -58,7 +98,7 @@ static const int RookSemiKingFileOpening = 10;
 static const int RookKingFileOpening = 20;
 
 static const bool UseKingAttack = true;
-static const int KingAttackOpening = 20;
+static const int KingAttackOpening = 20; 
 
 static const bool UseShelter = true;
 static const int ShelterOpening = 256; // 100%
@@ -67,13 +107,16 @@ static const int StormOpening = 10;
 
 static const int Rook7thOpening = 20;
 static const int Rook7thEndgame = 40;
-static const int Queen7thOpening = 10;
+//static const int Queen7thOpening = 10;
 static const int Queen7thEndgame = 20;
 
 static const int TrappedBishop = 100;
 
 static const int BlockedBishop = 50;
 static const int BlockedRook = 50;
+
+static const int ProtectedPassedOpening = 10;
+static const int ProtectedPassedEndgame = 20;
 
 static const int PassedOpeningMin = 10;
 static const int PassedOpeningMax = 70;
@@ -88,14 +131,40 @@ static const int DefenderDistance = 20;
 
 // "constants"
 
+// pawn shelter penalties
+
+static const int PawnShelterFront[7] = {   
+   72, 70, 64, 54, 40, 22, 0, // rank 8 (or no pawn) to rank 2 (0 penalty)
+};
+
+static const int PawnShelterOpenSide[7] = {
+   36, 35, 32, 26, 18, 14, 0, 
+};
+
+static const int PawnShelterClosedSide[7] = {
+   36, 35, 32, 27, 19, 9, 0, 
+};
+
+// weights
+
 static const int KingAttackWeight[16] = {
    0, 0, 128, 192, 224, 240, 248, 252, 254, 255, 256, 256 ,256, 256, 256, 256,
 };
 
+static const int SSpaceWeight[16] = {
+   0, 2, 5, 8, 12, 15, 20, 20, 20, 20, 20, 20 ,20, 20, 20, 20,
+};
+
+// types
+
+static const int TypeShelterFront = 1;
+static const int TypeShelterOpen = 0;
+static const int TypeShelterClosed = -1;
+
 // variables
 
 static int MobUnit[ColourNb][PieceNb];
-
+static int AttackUnit[ColourNb][PieceNb][PieceNb];
 static int KingAttackUnit[PieceNb];
 
 // prototypes
@@ -126,8 +195,8 @@ static bool draw_knpk          (const int list[], int turn);
 static bool draw_krpkr         (const int list[], int turn);
 static bool draw_kbpkb         (const int list[], int turn);
 
-static int  shelter_square     (const board_t * board, int square, int colour);
-static int  shelter_file       (const board_t * board, int file, int rank, int colour);
+static int  shelter_square     (const board_t * board, const material_info_t * mat_info, int square, int colour);
+static int  shelter_file       (const board_t * board, int file, int rank, int colour, int type);
 
 static int  storm_file         (const board_t * board, int file, int colour);
 
@@ -135,27 +204,41 @@ static bool bishop_can_attack  (const board_t * board, int to, int colour);
 
 // functions
 
-// eval_init()
+void eval_parameter() {
 
-void eval_init() {
-
-   int colour;
-   int piece;
-
-   // UCI options
+    // UCI options
 
    PieceActivityWeight = (option_get_int("Piece Activity") * 256 + 50) / 100;
    KingSafetyWeight    = (option_get_int("King Safety")    * 256 + 50) / 100;
    PassedPawnWeight    = (option_get_int("Passed Pawns")   * 256 + 50) / 100;
 
-   // mobility table
+   LazyEval = option_get_bool("Toga Lazy Eval"); /* Thomas */
+   lazy_eval_cutoff = option_get_int("Toga Lazy Eval Margin");
+   second_lazy_eval_cutoff = option_get_int("Toga Lazy Eval Mobility Margin");
+}
+
+// eval_init()
+
+void eval_init() {
+
+   int colour;
+   int piece, piece_attack;
+
+   // UCI options
+
+   eval_parameter();
+
+    // mobility table
 
    for (colour = 0; colour < ColourNb; colour++) {
       for (piece = 0; piece < PieceNb; piece++) {
-         MobUnit[colour][piece] = 0;
+      	    MobUnit[colour][piece] = 0;
+      		for (piece_attack = 0; piece_attack < PieceNb; piece_attack++) {
+         		AttackUnit[colour][piece][piece_attack] = 0;
+     		}
       }
    }
-
+   
    MobUnit[White][Empty] = MobMove;
 
    MobUnit[White][BP] = MobAttack;
@@ -166,10 +249,10 @@ void eval_init() {
    MobUnit[White][BK] = MobAttack;
 
    MobUnit[White][WP] = MobDefense;
-   MobUnit[White][WN] = MobDefense;
-   MobUnit[White][WB] = MobDefense;
-   MobUnit[White][WR] = MobDefense;
-   MobUnit[White][WQ] = MobDefense;
+   MobUnit[White][WN] = MobPieceDefense;
+   MobUnit[White][WB] = MobPieceDefense;
+   MobUnit[White][WR] = MobPieceDefense;
+   MobUnit[White][WQ] = MobPieceDefense;
    MobUnit[White][WK] = MobDefense;
 
    MobUnit[Black][Empty] = MobMove;
@@ -182,11 +265,76 @@ void eval_init() {
    MobUnit[Black][WK] = MobAttack;
 
    MobUnit[Black][BP] = MobDefense;
-   MobUnit[Black][BN] = MobDefense;
-   MobUnit[Black][BB] = MobDefense;
-   MobUnit[Black][BR] = MobDefense;
-   MobUnit[Black][BQ] = MobDefense;
+   MobUnit[Black][BN] = MobPieceDefense;
+   MobUnit[Black][BB] = MobPieceDefense;
+   MobUnit[Black][BR] = MobPieceDefense;
+   MobUnit[Black][BQ] = MobPieceDefense;
    MobUnit[Black][BK] = MobDefense;
+   
+   // Attack Units
+   // Knights
+
+   AttackUnit[White][WN][BP] = MobPawnAttack;
+   AttackUnit[White][WN][BN] = MobMinorAttack;
+   AttackUnit[White][WN][BB] = MobMinorAttack;
+   AttackUnit[White][WN][BR] = MobRookAttack;
+   AttackUnit[White][WN][BQ] = MobQueenAttack;
+   AttackUnit[White][WN][BK] = MobKingAttack;
+
+   AttackUnit[Black][BN][WP] = MobPawnAttack;
+   AttackUnit[Black][BN][WN] = MobMinorAttack;
+   AttackUnit[Black][BN][WB] = MobMinorAttack;
+   AttackUnit[Black][BN][WR] = MobRookAttack;
+   AttackUnit[Black][BN][WQ] = MobQueenAttack;
+   AttackUnit[Black][BN][WK] = MobKingAttack;
+
+   // Bishops
+
+   AttackUnit[White][WB][BP] = MobPawnAttack;
+   AttackUnit[White][WB][BN] = MobMinorAttack;
+   AttackUnit[White][WB][BB] = MobMinorAttack;
+   AttackUnit[White][WB][BR] = MobRookAttack;
+   AttackUnit[White][WB][BQ] = MobQueenAttack;
+   AttackUnit[White][WB][BK] = MobKingAttack;
+
+   AttackUnit[Black][BB][WP] = MobPawnAttack;
+   AttackUnit[Black][BB][WN] = MobMinorAttack;
+   AttackUnit[Black][BB][WB] = MobMinorAttack;
+   AttackUnit[Black][BB][WR] = MobRookAttack;
+   AttackUnit[Black][BB][WQ] = MobQueenAttack;
+   AttackUnit[Black][BB][WK] = MobKingAttack;
+   
+   // Rooks
+
+   AttackUnit[White][WR][BP] = MobPawnAttack;
+   AttackUnit[White][WR][BN] = MobMinorAttack;
+   AttackUnit[White][WR][BB] = MobMinorAttack;
+   AttackUnit[White][WR][BR] = MobRookAttack;
+   AttackUnit[White][WR][BQ] = MobQueenAttack;
+   AttackUnit[White][WR][BK] = MobKingAttack;
+
+   AttackUnit[Black][BR][WP] = MobPawnAttack;
+   AttackUnit[Black][BR][WN] = MobMinorAttack;
+   AttackUnit[Black][BR][WB] = MobMinorAttack;
+   AttackUnit[Black][BR][WR] = MobRookAttack;
+   AttackUnit[Black][BR][WQ] = MobQueenAttack;
+   AttackUnit[Black][BR][WK] = MobKingAttack;
+   
+   // Queens
+
+   AttackUnit[White][WQ][BP] = MobPawnAttack;
+   AttackUnit[White][WQ][BN] = MobMinorAttack;
+   AttackUnit[White][WQ][BB] = MobMinorAttack/2;
+   AttackUnit[White][WQ][BR] = MobRookAttack/2;
+   AttackUnit[White][WQ][BQ] = MobQueenAttack;
+   AttackUnit[White][WQ][BK] = MobKingAttack;
+
+   AttackUnit[Black][BQ][WP] = MobPawnAttack;
+   AttackUnit[Black][BQ][WN] = MobMinorAttack;
+   AttackUnit[Black][BQ][WB] = MobMinorAttack/2;
+   AttackUnit[Black][BQ][WR] = MobRookAttack/2;
+   AttackUnit[Black][BQ][WQ] = MobQueenAttack;
+   AttackUnit[Black][BQ][WK] = MobKingAttack;
 
    // KingAttackUnit[]
 
@@ -207,7 +355,7 @@ void eval_init() {
 
 // eval()
 
-int eval(const board_t * board) {
+int eval(board_t * board, int alpha, int beta, int ThreadId) {
 
    int opening, endgame;
    material_info_t mat_info[1];
@@ -216,11 +364,12 @@ int eval(const board_t * board) {
    int phase;
    int eval;
    int wb, bb;
+   int lazy_eval; // Thomas
 
    ASSERT(board!=NULL);
 
    ASSERT(board_is_legal(board));
-   ASSERT(!board_is_check(board)); // exceptions are extremely rare
+   ASSERT(!board_is_check(board)); // fixed by adding in_check condition to razoring (JD)
 
    // init
 
@@ -229,7 +378,9 @@ int eval(const board_t * board) {
 
    // material
 
-   material_get_info(mat_info,board);
+   material_get_info(mat_info,board,ThreadId);
+   
+   phase = mat_info->phase;
 
    opening += mat_info->opening;
    endgame += mat_info->endgame;
@@ -242,13 +393,6 @@ int eval(const board_t * board) {
    opening += board->opening;
    endgame += board->endgame;
 
-   // pawns
-
-   pawn_get_info(pawn_info,board);
-
-   opening += pawn_info->opening;
-   endgame += pawn_info->endgame;
-
    // draw
 
    eval_draw(board,mat_info,pawn_info,mul);
@@ -258,16 +402,67 @@ int eval(const board_t * board) {
 
    if (mul[White] == 0 && mul[Black] == 0) return ValueDraw;
 
-   // eval
+   // tempo
 
-   eval_piece(board,mat_info,pawn_info,&opening,&endgame);
-   eval_king(board,mat_info,&opening,&endgame);
-   eval_passer(board,pawn_info,&opening,&endgame);
+   if (COLOUR_IS_WHITE(board->turn)){
+		opening += 20;
+		endgame += 10;
+   } else {
+		opening -= 20;
+		endgame -= 10;
+   } 
+
    eval_pattern(board,&opening,&endgame);
 
+   // Lazy Eval (Thomas) 
+   // returns material+pst+pattern+pawn structure
+	
+   if (LazyEval && board->piece_size[White] > 3 && board->piece_size[Black] > 3){
+
+     lazy_eval = ((opening * (256 - phase)) + (endgame * phase)) / 256;
+
+     ASSERT(eval>=-ValueEvalInf&&eval<=+ValueEvalInf);
+
+	 if (COLOUR_IS_BLACK(board->turn)) lazy_eval = -lazy_eval;
+	 if (lazy_eval - lazy_eval_cutoff >= beta)
+		return (lazy_eval);
+	 if (lazy_eval + lazy_eval_cutoff <= alpha)
+		return (lazy_eval);  
+ 
+   } 
+   
+   // pawns (moved JD: very small gain)
+
+   pawn_get_info(pawn_info,board,ThreadId);
+
+   opening += pawn_info->opening;
+   endgame += pawn_info->endgame;
+
+   // eval
+
+   eval_king(board,mat_info,&opening,&endgame);
+   eval_passer(board,pawn_info,&opening,&endgame);
+   
+   // 2nd Lazy Eval Cutoff JD 
+   // returns without computing expensive mobility
+   
+   if (LazyEval && board->piece_size[White] > 3 && board->piece_size[Black] > 3){ // TODO try without 2nd & 3rd conditions
+
+     lazy_eval = ((opening * (256 - phase)) + (endgame * phase)) / 256;
+
+     ASSERT(eval>=-ValueEvalInf&&eval<=+ValueEvalInf);
+
+	 if (COLOUR_IS_BLACK(board->turn)) lazy_eval = -lazy_eval;
+	 if (lazy_eval - second_lazy_eval_cutoff >= beta)
+		return (lazy_eval);
+	 if (lazy_eval + second_lazy_eval_cutoff <= alpha)
+		return (lazy_eval);  
+   }
+   
+   eval_piece(board,mat_info,pawn_info,&opening,&endgame); 
+   
    // phase mix
 
-   phase = mat_info->phase;
    eval = ((opening * (256 - phase)) + (endgame * phase)) / 256;
 
    // drawish bishop endgames
@@ -562,9 +757,13 @@ static void eval_piece(const board_t * board, const material_info_t * mat_info, 
    int mob;
    int capture;
    const int * unit;
+   const int * attack_unit;
    int rook_file, king_file;
    int king;
    int delta;
+   int piece_nb, attackvalue;
+   int king_rank,piece_rank,new_mob, piece_file;
+   int att_value;
 
    ASSERT(board!=NULL);
    ASSERT(mat_info!=NULL);
@@ -589,12 +788,29 @@ static void eval_piece(const board_t * board, const material_info_t * mat_info, 
       opp_flag = COLOUR_FLAG(opp);
 
       unit = MobUnit[me];
+	  piece_nb = 0;
+	  attackvalue = 0;
 
       // piece loop
 
       for (ptr = &board->piece[me][1]; (from=*ptr) != SquareNone; ptr++) { // HACK: no king
 
          piece = board->square[from];
+         
+         // threat initialization
+         
+         att_value = 0;
+         attack_unit = AttackUnit[me][piece];
+         
+         // unsafe square penalty
+         
+         if (me == White && (board->square[from+17] == BP || board->square[from+15] == BP)){ 
+         	op[me] -= PawnAttack;
+            eg[me] -= PawnAttack;
+         } else if  (me == Black && (board->square[from-17] == WP || board->square[from-15] == WP)){
+         	op[me] -= PawnAttack;
+            eg[me] -= PawnAttack;
+         }
 
          switch (PIECE_TYPE(piece)) {
 
@@ -602,42 +818,124 @@ static void eval_piece(const board_t * board, const material_info_t * mat_info, 
 
             // mobility
 
-            mob = -KnightUnit;
+            mob = 0;
 
-            mob += unit[board->square[from-33]];
-            mob += unit[board->square[from-31]];
-            mob += unit[board->square[from-18]];
-            mob += unit[board->square[from-14]];
-            mob += unit[board->square[from+14]];
-            mob += unit[board->square[from+18]];
-            mob += unit[board->square[from+31]];
-            mob += unit[board->square[from+33]];
+            if (me == White){
 
-            op[me] += mob * KnightMobOpening;
-            eg[me] += mob * KnightMobEndgame;
+               // Safe Mobility - from Toga Returns 1.1 by Ben Tennison
+               // tested JD ~5 elo self play 4000 games
+               if ((board->square[from-18] != BP && board->square[from-16] != BP)) mob += unit[board->square[from-33]];
+               if ((board->square[from-16] != BP && board->square[from-14] != BP)) mob += unit[board->square[from-31]];
+               if ((board->square[from- 3] != BP && board->square[from- 1] != BP)) mob += unit[board->square[from-18]];
+               if ((board->square[from+ 1] != BP && board->square[from+ 3] != BP)) mob += unit[board->square[from-14]];
+               if ((board->square[from+48] != BP && board->square[from+50] != BP)) mob += unit[board->square[from+33]];
+               if ((board->square[from+46] != BP && board->square[from+48] != BP)) mob += unit[board->square[from+31]];
+               if ((board->square[from+33] != BP && board->square[from+35] != BP)) mob += unit[board->square[from+18]];
+			   if ((board->square[from+29] != BP && board->square[from+31] != BP)) mob += unit[board->square[from+14]];
 
+            } else {
+
+               if ((board->square[from-48] != WP && board->square[from-50] != WP)) mob += unit[board->square[from-33]];
+               if ((board->square[from-46] != WP && board->square[from-48] != WP)) mob += unit[board->square[from-31]];
+               if ((board->square[from-33] != WP && board->square[from-35] != WP)) mob += unit[board->square[from-18]];
+               if ((board->square[from-29] != WP && board->square[from-31] != WP)) mob += unit[board->square[from-14]];
+               if ((board->square[from+18] != WP && board->square[from+16] != WP)) mob += unit[board->square[from+33]];
+               if ((board->square[from+16] != WP && board->square[from+14] != WP)) mob += unit[board->square[from+31]];
+               if ((board->square[from+ 3] != WP && board->square[from+ 1] != WP)) mob += unit[board->square[from+18]];
+               if ((board->square[from- 1] != WP && board->square[from- 3] != WP)) mob += unit[board->square[from+14]];
+            }
+            
+            op[me] += knight_mob_opening[mob];
+            eg[me] += knight_mob_endgame[mob];
+
+            // outpost
+            mob = 0;
+            if (me == White && (board->square[from+17] != BP && board->square[from+15] != BP)){// not attacked: idea from DLT
+                if (board->square[from-17] == WP)
+                    mob += KnightOutpostMatrix[me][SquareTo64[from]]; 
+                if (board->square[from-15] == WP)
+                    mob += mob == 0 ? KnightOutpostMatrix[me][SquareTo64[from]] : KnightOutpostMatrix[me][SquareTo64[from]]/2; 
+                    
+                // adjust based on no. of opponent pawns
+				if (mob > 0) mob = mob*(6 + board->number[BlackPawn12]) / 10;
+                
+            }
+            else if (me == Black && (board->square[from-17] != WP && board->square[from-15] != WP)){
+                if (board->square[from+17] == BP)
+                    mob += KnightOutpostMatrix[me][SquareTo64[from]]; 
+                if (board->square[from+15] == BP)
+                    mob += mob == 0 ? KnightOutpostMatrix[me][SquareTo64[from]] : KnightOutpostMatrix[me][SquareTo64[from]]/2; 
+                
+                // adjust based on no. of opponent pawns
+				if (mob > 0) mob = mob*(6 + board->number[WhitePawn12]) / 10;
+            } 
+
+            op[me] += mob;
+            
+            // space / piece invasion
+
+            if (PAWN_RANK(from,me) >= Rank5){
+                piece_nb++;
+                attackvalue += 1;
+            }
+            
+            // threats
+            
+            att_value += attack_unit[board->square[from-33]];
+            att_value += attack_unit[board->square[from-31]];
+            att_value += attack_unit[board->square[from-18]];
+            att_value += attack_unit[board->square[from-14]];
+            att_value += attack_unit[board->square[from+33]];
+            att_value += attack_unit[board->square[from+31]];
+            att_value += attack_unit[board->square[from+18]];
+            att_value += attack_unit[board->square[from+14]];
+            
+            if (UseMobAttack){
+            	op[me] += att_value;
+            	eg[me] += att_value * 2;
+            }
+            
             break;
 
          case Bishop64:
 
             // mobility
 
-            mob = -BishopUnit;
-
+            mob = 0;
+            
             for (to = from-17; capture=board->square[to], THROUGH(capture); to -= 17) mob += MobMove;
-            mob += unit[capture];
+           	mob += unit[capture];
+           	att_value += attack_unit[capture];
 
             for (to = from-15; capture=board->square[to], THROUGH(capture); to -= 15) mob += MobMove;
             mob += unit[capture];
+            att_value += attack_unit[capture];
 
             for (to = from+15; capture=board->square[to], THROUGH(capture); to += 15) mob += MobMove;
-            mob += unit[capture];
+           	mob += unit[capture];
+           	att_value += attack_unit[capture];
 
             for (to = from+17; capture=board->square[to], THROUGH(capture); to += 17) mob += MobMove;
             mob += unit[capture];
+            att_value += attack_unit[capture];
 
-            op[me] += mob * BishopMobOpening;
-            eg[me] += mob * BishopMobEndgame;
+            op[me] += bishop_mob_opening[mob];
+            eg[me] += bishop_mob_endgame[mob];
+            
+            // space
+
+            if (PAWN_RANK(from,me) >= Rank5){
+                piece_nb++;
+                attackvalue += 1;
+            }
+            
+            // threats
+            
+            if (UseMobAttack){
+            	op[me] += att_value;
+            	eg[me] += att_value * 2;
+            }
+
 
             break;
 
@@ -645,22 +943,26 @@ static void eval_piece(const board_t * board, const material_info_t * mat_info, 
 
             // mobility
 
-            mob = -RookUnit;
+            mob = 0;
 
             for (to = from-16; capture=board->square[to], THROUGH(capture); to -= 16) mob += MobMove;
             mob += unit[capture];
+            att_value += attack_unit[capture];
 
             for (to = from- 1; capture=board->square[to], THROUGH(capture); to -=  1) mob += MobMove;
             mob += unit[capture];
+            att_value += attack_unit[capture];
 
             for (to = from+ 1; capture=board->square[to], THROUGH(capture); to +=  1) mob += MobMove;
             mob += unit[capture];
+            att_value += attack_unit[capture];
 
             for (to = from+16; capture=board->square[to], THROUGH(capture); to += 16) mob += MobMove;
             mob += unit[capture];
+            att_value += attack_unit[capture];
 
-            op[me] += mob * RookMobOpening;
-            eg[me] += mob * RookMobEndgame;
+            op[me] += rook_mob_opening[mob];
+            eg[me] += rook_mob_endgame[mob];
 
             // open file
 
@@ -705,55 +1007,93 @@ static void eval_piece(const board_t * board, const material_info_t * mat_info, 
                   eg[me] += Rook7thEndgame;
                }
             }
+            
+            // space 
+
+            if (PAWN_RANK(from,me) >= Rank5){
+                piece_nb++;
+                attackvalue += 2;
+            }
+            
+            // threats
+            
+            if (UseMobAttack){
+            	op[me] += att_value;
+            	eg[me] += att_value * 2;
+            }
 
             break;
 
          case Queen64:
-
-            // mobility
-
-            mob = -QueenUnit;
-
-            for (to = from-17; capture=board->square[to], THROUGH(capture); to -= 17) mob += MobMove;
+         	
+         	mob = 0;
+         	
+         	for (to = from-17; capture=board->square[to], THROUGH(capture); to -= 17) mob += MobMove;
             mob += unit[capture];
+            att_value += attack_unit[capture];
 
             for (to = from-16; capture=board->square[to], THROUGH(capture); to -= 16) mob += MobMove;
             mob += unit[capture];
+            att_value += attack_unit[capture];
 
             for (to = from-15; capture=board->square[to], THROUGH(capture); to -= 15) mob += MobMove;
             mob += unit[capture];
+            att_value += attack_unit[capture];
 
             for (to = from- 1; capture=board->square[to], THROUGH(capture); to -=  1) mob += MobMove;
             mob += unit[capture];
+            att_value += attack_unit[capture];
 
             for (to = from+ 1; capture=board->square[to], THROUGH(capture); to +=  1) mob += MobMove;
             mob += unit[capture];
+            att_value += attack_unit[capture];
 
             for (to = from+15; capture=board->square[to], THROUGH(capture); to += 15) mob += MobMove;
             mob += unit[capture];
+            att_value += attack_unit[capture];
 
             for (to = from+16; capture=board->square[to], THROUGH(capture); to += 16) mob += MobMove;
             mob += unit[capture];
+            att_value += attack_unit[capture];
 
             for (to = from+17; capture=board->square[to], THROUGH(capture); to += 17) mob += MobMove;
             mob += unit[capture];
-
-            op[me] += mob * QueenMobOpening;
-            eg[me] += mob * QueenMobEndgame;
+            att_value += attack_unit[capture];
+            
+            op[me] += queen_mob_opening[mob];
+            eg[me] += queen_mob_endgame[mob];
 
             // 7th rank
 
             if (PAWN_RANK(from,me) == Rank7) {
                if ((pawn_info->flags[opp] & BackRankFlag) != 0 // opponent pawn on 7th rank
                 || PAWN_RANK(KING_POS(board,opp),me) == Rank8) {
-                  op[me] += Queen7thOpening;
-                  eg[me] += Queen7thEndgame;
+                  //op[me] += Queen7thOpening;
+                  eg[me] += Queen7thEndgame; 
                }
-            }
+            } 
+            
+            // space
 
+            if (PAWN_RANK(from,me) >= Rank5){
+                piece_nb++;
+                attackvalue += 4;
+            }
+            
+            // threats
+            
+            if (UseMobAttack){
+            	op[me] += att_value/3;
+            	eg[me] += att_value;
+			}
+            
             break;
          }
       }
+      
+      // space / piece incasion
+      
+      op[me] += SSpaceWeight[piece_nb] * attackvalue;
    }
 
    // update
@@ -778,6 +1118,7 @@ static void eval_king(const board_t * board, const material_info_t * mat_info, i
    int piece;
    int attack_tot;
    int piece_nb;
+   int king_file, king_rank, file;
 
    ASSERT(board!=NULL);
    ASSERT(mat_info!=NULL);
@@ -789,6 +1130,105 @@ static void eval_king(const board_t * board, const material_info_t * mat_info, i
    for (colour = 0; colour < ColourNb; colour++) {
       op[colour] = 0;
       eg[colour] = 0;
+   }
+
+   // white pawn shelter
+   
+   if (UseShelter && (mat_info->cflags[White] & MatKingFlag) != 0) { 
+
+      // init 
+      
+	  penalty = 0;
+	  me = White;
+
+	  if (board->number[BlackQueen12] > 0){ 
+	  
+		  // king
+
+		  penalty_1 = shelter_square(board,mat_info,KING_POS(board,me),me);
+
+		  // castling
+
+          penalty_2 = penalty_1;
+
+          if ((board->flags & FlagsWhiteKingCastle) != 0) {
+             tmp = shelter_square(board,mat_info,G1,me);
+             if (tmp < penalty_2) penalty_2 = tmp;
+		  }
+
+          if ((board->flags & FlagsWhiteQueenCastle) != 0) {
+             tmp = shelter_square(board,mat_info,B1,me);
+             if (tmp < penalty_2) penalty_2 = tmp;
+		  }
+
+          ASSERT(penalty_2>=0&&penalty_2<=penalty_1);
+
+          // penalty
+
+          penalty = (penalty_1 + penalty_2) / 2;
+          ASSERT(penalty>=0);
+	  }
+	  
+	  // storm
+	  
+      if (UseStorm) {
+		file = SQUARE_FILE(KING_POS(board,White));
+		penalty += storm_file(board,file,White);
+		if (file != FileA) penalty += storm_file(board,file-1,White);
+		if (file != FileH) penalty += storm_file(board,file+1,White);
+	  }
+	  
+	  // add white king safety score to evaluation
+	  op[me] -= (penalty * ShelterOpening) / 256;
+	  
+   }
+
+   // black pawn shelter
+
+   if (UseShelter && (mat_info->cflags[Black] & MatKingFlag) != 0) {
+
+	  penalty = 0;
+	  me = Black;
+
+	  if (board->number[WhiteQueen12] > 0){ 
+
+	      // king
+
+          penalty_1 = shelter_square(board,mat_info,KING_POS(board,me),me);
+
+		  // castling
+
+          penalty_2 = penalty_1;
+
+          if ((board->flags & FlagsBlackKingCastle) != 0) {
+             tmp = shelter_square(board,mat_info,G8,me);
+             if (tmp < penalty_2) penalty_2 = tmp;
+		  }
+
+          if ((board->flags & FlagsBlackQueenCastle) != 0) {
+             tmp = shelter_square(board,mat_info,B8,me);
+             if (tmp < penalty_2) penalty_2 = tmp;
+		  }
+
+          ASSERT(penalty_2>=0&&penalty_2<=penalty_1);
+
+          // penalty
+
+          penalty = (penalty_1 + penalty_2) / 2;
+          ASSERT(penalty>=0);
+
+	  }
+	  
+	  // storm
+	  
+	  if (UseStorm) {
+		file = SQUARE_FILE(KING_POS(board,Black));
+		penalty += storm_file(board,file,Black);
+		if (file != FileA) penalty += storm_file(board,file-1,Black);
+		if (file != FileH) penalty += storm_file(board,file+1,Black);
+	  }
+	  
+	  op[me] -= (penalty * ShelterOpening) / 256;
    }
 
    // king attacks
@@ -803,12 +1243,14 @@ static void eval_king(const board_t * board, const material_info_t * mat_info, i
             opp = COLOUR_OPP(me);
 
             king = KING_POS(board,me);
-
+			king_file = SQUARE_FILE(king);
+			king_rank = SQUARE_RANK(king);
+            
             // piece attacks
 
             attack_tot = 0;
             piece_nb = 0;
-
+			
             for (ptr = &board->piece[opp][1]; (from=*ptr) != SquareNone; ptr++) { // HACK: no king
 
                piece = board->square[from];
@@ -817,82 +1259,21 @@ static void eval_king(const board_t * board, const material_info_t * mat_info, i
                   piece_nb++;
                   attack_tot += KingAttackUnit[piece];
                }
+/*		       else{
+			       if ((abs(king_file-SQUARE_FILE(from)) + abs(king_rank-SQUARE_RANK(from))) <= 4){
+					   piece_nb++;
+                       attack_tot += KingAttackUnit[piece];
+				   }
+			   } */
             }
 
             // scoring
 
             ASSERT(piece_nb>=0&&piece_nb<16);
-            op[colour] -= (attack_tot * KingAttackOpening * KingAttackWeight[piece_nb]) / 256;
+
+			op[colour] -= (attack_tot * KingAttackOpening * KingAttackWeight[piece_nb]) / 256;
          }
       }
-   }
-
-   // white pawn shelter
-
-   if (UseShelter && (mat_info->cflags[White] & MatKingFlag) != 0) {
-
-      me = White;
-
-      // king
-
-      penalty_1 = shelter_square(board,KING_POS(board,me),me);
-
-      // castling
-
-      penalty_2 = penalty_1;
-
-      if ((board->flags & FlagsWhiteKingCastle) != 0) {
-         tmp = shelter_square(board,G1,me);
-         if (tmp < penalty_2) penalty_2 = tmp;
-      }
-
-      if ((board->flags & FlagsWhiteQueenCastle) != 0) {
-         tmp = shelter_square(board,B1,me);
-         if (tmp < penalty_2) penalty_2 = tmp;
-      }
-
-      ASSERT(penalty_2>=0&&penalty_2<=penalty_1);
-
-      // penalty
-
-      penalty = (penalty_1 + penalty_2) / 2;
-      ASSERT(penalty>=0);
-
-      op[me] -= (penalty * ShelterOpening) / 256;
-   }
-
-   // black pawn shelter
-
-   if (UseShelter && (mat_info->cflags[Black] & MatKingFlag) != 0) {
-
-      me = Black;
-
-      // king
-
-      penalty_1 = shelter_square(board,KING_POS(board,me),me);
-
-      // castling
-
-      penalty_2 = penalty_1;
-
-      if ((board->flags & FlagsBlackKingCastle) != 0) {
-         tmp = shelter_square(board,G8,me);
-         if (tmp < penalty_2) penalty_2 = tmp;
-      }
-
-      if ((board->flags & FlagsBlackQueenCastle) != 0) {
-         tmp = shelter_square(board,B8,me);
-         if (tmp < penalty_2) penalty_2 = tmp;
-      }
-
-      ASSERT(penalty_2>=0&&penalty_2<=penalty_1);
-
-      // penalty
-
-      penalty = (penalty_1 + penalty_2) / 2;
-      ASSERT(penalty>=0);
-
-      op[me] -= (penalty * ShelterOpening) / 256;
    }
 
    // update
@@ -913,7 +1294,8 @@ static void eval_passer(const board_t * board, const pawn_info_t * pawn_info, in
    int sq;
    int min, max;
    int delta;
-
+   int white_passed_nb, black_passed_nb;
+   
    ASSERT(board!=NULL);
    ASSERT(pawn_info!=NULL);
    ASSERT(opening!=NULL);
@@ -925,6 +1307,9 @@ static void eval_passer(const board_t * board, const pawn_info_t * pawn_info, in
       op[colour] = 0;
       eg[colour] = 0;
    }
+
+   white_passed_nb = 0;
+   black_passed_nb = 0;
 
    // passed pawns
 
@@ -946,6 +1331,21 @@ static void eval_passer(const board_t * board, const pawn_info_t * pawn_info, in
 
          ASSERT(PIECE_IS_PAWN(board->square[sq]));
          ASSERT(COLOUR_IS(board->square[sq],att));
+
+		 // Thomas
+
+	/*	 if (att == White){
+             if (board->piece_size[Black]-1 == board->number[BlackKnight12] && (file == FileA || file == FileH)){
+				eg[att] += 30;
+			 }
+		
+		 }
+		 else{
+			 if (board->piece_size[White]-1 == board->number[WhiteKnight12] && (file == FileA || file == FileH)){
+				eg[att] += 30;
+			 }
+			 
+		 }  */
 
          // opening scoring
 
@@ -982,6 +1382,15 @@ static void eval_passer(const board_t * board, const pawn_info_t * pawn_info, in
 
    // update
 
+/*   if (white_passed_nb > 100){
+		op[White] = ((white_passed_nb / 10) * op[White]) / 100 + op[White];
+        eg[White] = ((white_passed_nb / 10) * eg[White]) / 100 + eg[White]; 
+   }
+   if (black_passed_nb > 100){
+		op[Black] = ((black_passed_nb / 10) * op[Black]) / 100 + op[Black];
+        eg[Black] = ((black_passed_nb / 10) * eg[Black]) / 100 + eg[Black]; 
+   } */
+   
    *opening += ((op[White] - op[Black]) * PassedPawnWeight) / 256;
    *endgame += ((eg[White] - eg[Black]) * PassedPawnWeight) / 256;
 }
@@ -1780,10 +2189,11 @@ static bool draw_kbpkb(const int list[], int turn) {
 
 // shelter_square()
 
-static int shelter_square(const board_t * board, int square, int colour) {
+static int shelter_square(const board_t * board, const material_info_t * mat_info, int square, int colour) {
 
    int penalty;
    int file, rank;
+   int type;
 
    ASSERT(board!=NULL);
    ASSERT(SQUARE_IS_OK(square));
@@ -1794,10 +2204,22 @@ static int shelter_square(const board_t * board, int square, int colour) {
    file = SQUARE_FILE(square);
    rank = PAWN_RANK(square,colour);
 
-   penalty += shelter_file(board,file,rank,colour) * 2;
-   if (file != FileA) penalty += shelter_file(board,file-1,rank,colour);
-   if (file != FileH) penalty += shelter_file(board,file+1,rank,colour);
-
+   penalty += shelter_file(board,file,rank,colour,TypeShelterFront);
+   
+   if (file != FileA){
+      if (file > FileE)
+          penalty += shelter_file(board,file-1,rank,colour,TypeShelterOpen);
+      else 
+          penalty += shelter_file(board,file-1,rank,colour,TypeShelterClosed);
+   }
+          
+   if (file != FileH){ 
+       if (file < FileD)
+          penalty += shelter_file(board,file+1,rank,colour,TypeShelterOpen);
+       else
+          penalty += shelter_file(board,file+1,rank,colour,TypeShelterClosed);
+   }
+  
    if (penalty == 0) penalty = 11; // weak back rank
 
    if (UseStorm) {
@@ -1811,10 +2233,9 @@ static int shelter_square(const board_t * board, int square, int colour) {
 
 // shelter_file()
 
-static int shelter_file(const board_t * board, int file, int rank, int colour) {
+static int shelter_file(const board_t * board, int file, int rank, int colour, int type) {
 
    int dist;
-   int penalty;
 
    ASSERT(board!=NULL);
    ASSERT(file>=FileA&&file<=FileH);
@@ -1827,10 +2248,13 @@ static int shelter_file(const board_t * board, int file, int rank, int colour) {
    dist = Rank8 - dist;
    ASSERT(dist>=0&&dist<=6);
 
-   penalty = 36 - dist * dist;
-   ASSERT(penalty>=0&&penalty<=36);
+   if (type == TypeShelterFront)
+       return PawnShelterFront[dist];
+   else if (type == TypeShelterOpen)
+       return PawnShelterOpenSide[dist];
+   else
+       return PawnShelterClosedSide[dist];
 
-   return penalty;
 }
 
 // storm_file()
@@ -1854,10 +2278,10 @@ static int storm_file(const board_t * board, int file, int colour) {
       penalty = StormOpening * 1;
       break;
    case Rank5:
-      penalty = StormOpening * 3;
+      penalty = StormOpening * 2;
       break;
    case Rank6:
-      penalty = StormOpening * 6;
+      penalty = StormOpening * 4; // JD
       break;
    }
 

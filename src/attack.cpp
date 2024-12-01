@@ -455,7 +455,6 @@ void attack_set(attack_t * attack, const board_t * board) {
 
 bool piece_attack_king(const board_t * board, int piece, int from, int king) {
 
-   const inc_t * inc_ptr;
    int code;
    const int * delta_ptr;
    int delta, inc;
@@ -466,8 +465,6 @@ bool piece_attack_king(const board_t * board, int piece, int from, int king) {
    ASSERT(piece_is_ok(piece));
    ASSERT(SQUARE_IS_OK(from));
    ASSERT(SQUARE_IS_OK(king));
-
-   inc_ptr = PIECE_INC(piece);
 
    code = PieceCode[piece];
    ASSERT(code>=0&&code<4);
@@ -486,10 +483,13 @@ bool piece_attack_king(const board_t * board, int piece, int from, int king) {
          sq = from;
          do {
             sq += inc;
-            if (sq == to && SQUARE_IS_OK(to)) {
-               ASSERT(DISTANCE(to,king)==1);
-               return true;
-            }
+           // if (sq == to && SQUARE_IS_OK(to)) {
+           //    ASSERT(DISTANCE(to,king)==1);
+           //    return true; 
+			if (DISTANCE(sq,king)<=2 && SQUARE_IS_OK(sq)){
+				  return true; 
+			}
+            
          } while (board->square[sq] == Empty);
       }
 

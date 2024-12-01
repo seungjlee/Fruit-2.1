@@ -11,8 +11,10 @@
 
 // functions
 
-extern void search_full_init (list_t * list, board_t * board);
-extern int  search_full_root (list_t * list, board_t * board, int depth, int search_type);
+extern void search_full_init (list_t * list, board_t * board, int ThreadId);
+extern int  search_full_root (list_t * list, board_t * board, int a, int b, int depth, int search_type, int ThreadId);
+
+//extern bool egbb_is_loaded;
 
 #endif // !defined SEARCH_FULL_H
 

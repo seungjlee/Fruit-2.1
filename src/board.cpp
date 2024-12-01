@@ -236,7 +236,7 @@ void board_init_list(board_t * board) {
       // piece list
 
       pos = 0;
-
+	        
       for (sq_64 = 0; sq_64 < 64; sq_64++) {
 
          sq = SQUARE_FROM_64(sq_64);
@@ -254,10 +254,12 @@ void board_init_list(board_t * board) {
 
             board->piece_nb++;
             board->number[PIECE_TO_12(piece)]++;
+
          }
       }
 
       if (board->number[COLOUR_IS_WHITE(colour)?WhiteKing12:BlackKing12] != 1) my_fatal("board_init_list(): illegal position\n");
+	  if (board->number[WhiteBishop12] >= 10) printf("illegal position!\n");	
 
       ASSERT(pos>=1&&pos<=16);
       board->piece[colour][pos] = SquareNone;
@@ -329,6 +331,8 @@ void board_init_list(board_t * board) {
             board->piece_nb++;
             board->number[PIECE_TO_12(piece)]++;
             board->pawn_file[colour][SQUARE_FILE(sq)] |= BIT(PAWN_RANK(sq,colour));
+
+			board->piece_material[colour] += VALUE_PIECE(piece); // Thomas
          }
       }
 
@@ -342,6 +346,7 @@ void board_init_list(board_t * board) {
    // last square
 
    board->cap_sq = SquareNone;
+	board->moving_piece = PieceNone256;
 
    // PST
 
@@ -430,7 +435,7 @@ bool board_is_stalemate(board_t * board) {
 bool board_is_repetition(const board_t * board) {
 
    int i;
-
+   
    ASSERT(board!=NULL);
 
    // 50-move rule
@@ -446,9 +451,8 @@ bool board_is_repetition(const board_t * board) {
    // position repetition
 
    ASSERT(board->sp>=board->ply_nb);
-
    for (i = 4; i <= board->ply_nb; i += 2) {
-      if (board->stack[board->sp-i] == board->key) return true;
+       if (board->stack[board->sp-i] == board->key) return true;
    }
 
    return false;

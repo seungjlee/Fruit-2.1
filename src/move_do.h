@@ -27,6 +27,7 @@ struct undo_t {
    int ply_nb;
 
    int cap_sq;
+	int moving_piece;
 
    int opening;
    int endgame;

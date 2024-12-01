@@ -21,6 +21,8 @@ const int ValueKing   = 10000; // was 10000
 const int ValueNone    = -32767;
 const int ValueDraw    = 0;
 const int ValueMate    = 30000;
+const int ValueWin     = 3000;
+const int ValuePly     = 40;
 const int ValueInf     = ValueMate;
 const int ValueEvalInf = ValueMate - 256; // handle mates upto 255 plies
 
@@ -50,4 +52,3 @@ extern int  value_to_mate    (int value);
 #endif // !defined VALUE_H
 
 // end of value.h
-

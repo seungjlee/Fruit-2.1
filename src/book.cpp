@@ -72,6 +72,7 @@ void book_close() {
    if (BookFile != NULL && fclose(BookFile) == EOF) {
       my_fatal("book_close(): fclose(): %s\n",strerror(errno));
    }
+   BookFile = NULL;
 }
 
 // book_move()

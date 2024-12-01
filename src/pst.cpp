@@ -25,6 +25,7 @@ static const int A8=070, B8=071, C8=072, D8=073, E8=074, F8=075, G8=076, H8=077;
 
 // constants and variables
 
+static /* const */ int PieceSquareWeight = 256; // 100%
 static /* const */ int PieceActivityWeight = 256; // 100%
 static /* const */ int KingSafetyWeight = 256; // 100%
 static /* const */ int PawnStructureWeight = 256; // 100%
@@ -40,7 +41,7 @@ static const int BishopCentreEndgame = 3;
 static const int BishopBackRankOpening = 10;
 static const int BishopDiagonalOpening = 4;
 static const int RookFileOpening = 3;
-static const int QueenCentreOpening = 0;
+static const int QueenCentreOpening = 0; // was 0
 static const int QueenCentreEndgame = 4;
 static const int QueenBackRankOpening = 5;
 static const int KingCentreEndgame = 12;
@@ -101,6 +102,16 @@ static int square_opp  (int square);
 
 // pst_init()
 
+void pst_parameter() {
+
+   // UCI options
+
+   PieceSquareWeight = (option_get_int("Piece Square Activity") * 256 + 50) / 100;
+   KingSafetyWeight    = (option_get_int("King Safety")    * 256 + 50) / 100;
+   PawnStructureWeight = (option_get_int("Pawn Structure") * 256 + 50) / 100;
+
+}
+
 void pst_init() {
 
    int i;
@@ -108,9 +119,7 @@ void pst_init() {
 
    // UCI options
 
-   PieceActivityWeight = (option_get_int("Piece Activity") * 256 + 50) / 100;
-   KingSafetyWeight    = (option_get_int("King Safety")    * 256 + 50) / 100;
-   PawnStructureWeight = (option_get_int("Pawn Structure") * 256 + 50) / 100;
+   pst_parameter();
 
    // init
 
@@ -183,8 +192,8 @@ void pst_init() {
    // weight
 
    for (sq = 0; sq < 64; sq++) {
-      P(piece,sq,Opening) = (P(piece,sq,Opening) * PieceActivityWeight) / 256;
-      P(piece,sq,Endgame) = (P(piece,sq,Endgame) * PieceActivityWeight) / 256;
+      P(piece,sq,Opening) = (P(piece,sq,Opening) * PieceSquareWeight) / 256;
+      P(piece,sq,Endgame) = (P(piece,sq,Endgame) * PieceSquareWeight) / 256;
    }
 
    // bishops
@@ -217,8 +226,8 @@ void pst_init() {
    // weight
 
    for (sq = 0; sq < 64; sq++) {
-      P(piece,sq,Opening) = (P(piece,sq,Opening) * PieceActivityWeight) / 256;
-      P(piece,sq,Endgame) = (P(piece,sq,Endgame) * PieceActivityWeight) / 256;
+      P(piece,sq,Opening) = (P(piece,sq,Opening) * PieceSquareWeight) / 256;
+      P(piece,sq,Endgame) = (P(piece,sq,Endgame) * PieceSquareWeight) / 256;
    }
 
    // rooks
@@ -234,8 +243,8 @@ void pst_init() {
    // weight
 
    for (sq = 0; sq < 64; sq++) {
-      P(piece,sq,Opening) = (P(piece,sq,Opening) * PieceActivityWeight) / 256;
-      P(piece,sq,Endgame) = (P(piece,sq,Endgame) * PieceActivityWeight) / 256;
+      P(piece,sq,Opening) = (P(piece,sq,Opening) * PieceSquareWeight) / 256;
+      P(piece,sq,Endgame) = (P(piece,sq,Endgame) * PieceSquareWeight) / 256;
    }
 
    // queens
@@ -260,8 +269,8 @@ void pst_init() {
    // weight
 
    for (sq = 0; sq < 64; sq++) {
-      P(piece,sq,Opening) = (P(piece,sq,Opening) * PieceActivityWeight) / 256;
-      P(piece,sq,Endgame) = (P(piece,sq,Endgame) * PieceActivityWeight) / 256;
+      P(piece,sq,Opening) = (P(piece,sq,Opening) * PieceSquareWeight) / 256;
+      P(piece,sq,Endgame) = (P(piece,sq,Endgame) * PieceSquareWeight) / 256;
    }
 
    // kings
@@ -291,7 +300,7 @@ void pst_init() {
 
    for (sq = 0; sq < 64; sq++) {
       P(piece,sq,Opening) = (P(piece,sq,Opening) * KingSafetyWeight)    / 256;
-      P(piece,sq,Endgame) = (P(piece,sq,Endgame) * PieceActivityWeight) / 256;
+      P(piece,sq,Endgame) = (P(piece,sq,Endgame) * PieceSquareWeight) / 256;
    }
 
    // symmetry copy for black
@@ -343,4 +352,3 @@ static int square_opp(int square) {
 }
 
 // end of pst.cpp
-

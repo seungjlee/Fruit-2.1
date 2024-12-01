@@ -33,7 +33,7 @@
 
 // macros
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && !defined(__MINGW32__)
 #  define S64(u) (u##i64)
 #  define U64(u) (u##ui64)
 #else
@@ -67,6 +67,15 @@ typedef unsigned int uint32;
   typedef unsigned long long int uint64;
 #endif
 
+#ifndef _WIN32
+#include <pthread.h>
+typedef struct {
+    int volatile value;
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
+} my_sem_t;
+#endif
+
 struct my_timer_t {
    double start_real;
    double start_cpu;
@@ -86,7 +95,7 @@ extern sint64 my_atoll              (const char string[]);
 
 extern int    my_round              (double x);
 
-extern void * my_malloc             (int size);
+extern void * my_malloc             (uint64 size);
 extern void   my_free               (void * address);
 
 extern void   my_fatal              (const char format[], ...);
@@ -107,6 +116,12 @@ extern void   my_timer_stop         (my_timer_t * timer);
 extern double my_timer_elapsed_real (const my_timer_t * timer);
 extern double my_timer_elapsed_cpu  (const my_timer_t * timer);
 extern double my_timer_cpu_usage    (const my_timer_t * timer);
+
+#ifndef _WIN32
+extern void my_sem_init(my_sem_t *sem, int value);
+extern void my_sem_post(my_sem_t *sem);
+extern void my_sem_wait(my_sem_t *sem);
+#endif
 
 #endif // !defined UTIL_H
 

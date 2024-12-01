@@ -77,6 +77,7 @@ void move_do(board_t * board, int move, undo_t * undo) {
    undo->ply_nb = board->ply_nb;
 
    undo->cap_sq = board->cap_sq;
+	undo->moving_piece = board->moving_piece;
 
    undo->opening = board->opening;
    undo->endgame = board->endgame;
@@ -94,6 +95,7 @@ void move_do(board_t * board, int move, undo_t * undo) {
    to = MOVE_TO(move);
 
    piece = board->square[from];
+	board->moving_piece = piece;
    ASSERT(COLOUR_IS(piece,me));
 
    // update key stack
@@ -293,6 +295,7 @@ void move_undo(board_t * board, int move, const undo_t * undo) {
    board->ply_nb = undo->ply_nb;
 
    board->cap_sq = undo->cap_sq;
+	board->moving_piece = undo->moving_piece;
 
    board->opening = undo->opening;
    board->endgame = undo->endgame;
@@ -330,6 +333,7 @@ void move_do_null(board_t * board, undo_t * undo) {
    undo->ep_square = board->ep_square;
    undo->ply_nb = board->ply_nb;
    undo->cap_sq = board->cap_sq;
+	undo->moving_piece = board->moving_piece;
    undo->key = board->key;
 
    // update key stack
@@ -357,6 +361,7 @@ void move_do_null(board_t * board, undo_t * undo) {
    // update last square
 
    board->cap_sq = SquareNone;
+	board->moving_piece = PieceNone256;
 
    // debug
 
@@ -379,6 +384,7 @@ void move_undo_null(board_t * board, const undo_t * undo) {
    board->ep_square = undo->ep_square;
    board->ply_nb = undo->ply_nb;
    board->cap_sq = undo->cap_sq;
+	board->moving_piece = undo->moving_piece;
    board->key = undo->key;
 
    // update key stack
@@ -495,7 +501,7 @@ static void square_clear(board_t * board, int square, int piece, bool update) {
 
    ASSERT(board->number[piece_12]>0);
    board->number[piece_12]--;
-
+   
    // update
 
    if (update) {
@@ -628,7 +634,7 @@ static void square_set(board_t * board, int square, int piece, int pos, bool upd
 
    ASSERT(board->number[piece_12]<9);
    board->number[piece_12]++;
-
+   
    // update
 
    if (update) {

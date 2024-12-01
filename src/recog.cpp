@@ -20,7 +20,7 @@ static bool kbpk_draw (int wp, int wb, int bk);
 
 // recog_draw()
 
-bool recog_draw(const board_t * board) {
+bool recog_draw(const board_t * board, int ThreadId) {
 
    material_info_t mat_info[1];
 
@@ -30,7 +30,7 @@ bool recog_draw(const board_t * board) {
 
    if (board->piece_nb > 4) return false;
 
-   material_get_info(mat_info,board);
+   material_get_info(mat_info,board,ThreadId);
 
    if ((mat_info->flags & DrawNodeFlag) == 0) return false;
 

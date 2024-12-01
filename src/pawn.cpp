@@ -14,11 +14,12 @@
 #include "protocol.h"
 #include "square.h"
 #include "util.h"
+#include "search.h"
 
 // constants
 
 static const bool UseTable = true;
-static const uint32 TableSize = 16384; // 256kB
+static const uint32 TableSize = 16384; // was 16384 256kB tried 65536 
 
 // types
 
@@ -65,6 +66,8 @@ static const int PassedEndgameMax = 140;
 */
 
 static /* const */ int Bonus[RankNb];
+static /* const */ int FileBonus[FileNb]; // JD
+static /* const */ int RankBonus[FileNb];
 
 // variables
 
@@ -79,7 +82,7 @@ int BitLast[0x100];
 int BitCount[0x100];
 int BitRev[0x100];
 
-static pawn_t Pawn[1];
+static pawn_t Pawn[MaxThreads][1];
 
 static int BitRank1[RankNb];
 static int BitRank2[RankNb];
@@ -153,66 +156,119 @@ void pawn_init_bit() {
    }
 }
 
-// pawn_init()
+// pawn_parameter()
 
-void pawn_init() {
-
-   int rank;
+void pawn_parameter() {
 
    // UCI options
 
    PawnStructureWeight = (option_get_int("Pawn Structure") * 256 + 50) / 100;
 
+}
+
+// pawn_init()
+
+void pawn_init() {
+
+   int rank, file, ThreadId;
+
+   // UCI options
+
+   pawn_parameter();
+
    // bonus
 
-   for (rank = 0; rank < RankNb; rank++) Bonus[rank] = 0;
+   for (rank = 0; rank < RankNb; rank++) {
+   
+       Bonus[rank] = 0;
+       RankBonus[rank] = 0;
+   }
+   
+   for (file = 0; file < FileNb; file++) FileBonus[file] = 0;
 
    Bonus[Rank4] = 26;
    Bonus[Rank5] = 77;
    Bonus[Rank6] = 154;
    Bonus[Rank7] = 256;
+   
+   RankBonus[Rank4] = 2;
+   RankBonus[Rank5] = 4;
+   RankBonus[Rank6] = 8;
+   RankBonus[Rank7] = 20;
+   
+   //FileBonus[FileA] = 0;
+   //FileBonus[FileB] = 0;
+   FileBonus[FileC] = 1;
+   FileBonus[FileD] = 2;   
+   FileBonus[FileE] = 2;
+   FileBonus[FileF] = 1;
+   //FileBonus[FileG] = 0;
+   //FileBonus[FileH] = 0;
 
    // pawn hash-table
 
-   Pawn->size = 0;
-   Pawn->mask = 0;
-   Pawn->table = NULL;
+	for (ThreadId = 0; ThreadId < NumberThreads; ThreadId++){
+		Pawn[ThreadId]->size = 0;
+		Pawn[ThreadId]->mask = 0;
+		Pawn[ThreadId]->table = NULL;
+	}
 }
 
 // pawn_alloc()
 
 void pawn_alloc() {
+	
+	int ThreadId;
 
    ASSERT(sizeof(entry_t)==16);
 
    if (UseTable) {
+		
+		for (ThreadId = 0; ThreadId < NumberThreads; ThreadId++){
+			Pawn[ThreadId]->size = TableSize;
+			Pawn[ThreadId]->mask = TableSize - 1;
+			Pawn[ThreadId]->table = (entry_t *) my_malloc(Pawn[ThreadId]->size*sizeof(entry_t));
 
-      Pawn->size = TableSize;
-      Pawn->mask = TableSize - 1;
-      Pawn->table = (entry_t *) my_malloc(Pawn->size*sizeof(entry_t));
+			pawn_clear(ThreadId);
+		}
+   }
+}
 
-      pawn_clear();
+// pawn_free()
+
+void pawn_free() {
+	
+	int ThreadId;
+
+   ASSERT(sizeof(entry_t)==16);
+
+   if (UseTable) {
+		
+                for (ThreadId = 0; ThreadId < NumberThreads; ThreadId++){
+
+		  my_free(Pawn[ThreadId]->table);
+		}
    }
 }
 
 // pawn_clear()
 
-void pawn_clear() {
+void pawn_clear(int ThreadId) {
 
-   if (Pawn->table != NULL) {
-      memset(Pawn->table,0,Pawn->size*sizeof(entry_t));
+   if (Pawn[ThreadId]->table != NULL) {
+      memset(Pawn[ThreadId]->table,0,Pawn[ThreadId]->size*sizeof(entry_t));
    }
 
-   Pawn->used = 0;
-   Pawn->read_nb = 0;
-   Pawn->read_hit = 0;
-   Pawn->write_nb = 0;
-   Pawn->write_collision = 0;
+   Pawn[ThreadId]->used = 0;
+   Pawn[ThreadId]->read_nb = 0;
+   Pawn[ThreadId]->read_hit = 0;
+   Pawn[ThreadId]->write_nb = 0;
+   Pawn[ThreadId]->write_collision = 0;
 }
 
 // pawn_get_info()
 
-void pawn_get_info(pawn_info_t * info, const board_t * board) {
+void pawn_get_info(pawn_info_t * info, const board_t * board, int ThreadId) {
 
    uint64 key;
    entry_t * entry;
@@ -224,16 +280,16 @@ void pawn_get_info(pawn_info_t * info, const board_t * board) {
 
    if (UseTable) {
 
-      Pawn->read_nb++;
+      Pawn[ThreadId]->read_nb++;
 
       key = board->pawn_key;
-      entry = &Pawn->table[KEY_INDEX(key)&Pawn->mask];
+      entry = &Pawn[ThreadId]->table[KEY_INDEX(key)&Pawn[ThreadId]->mask];
 
       if (entry->lock == KEY_LOCK(key)) {
 
          // found
 
-         Pawn->read_hit++;
+         Pawn[ThreadId]->read_hit++;
 
          *info = *entry;
 
@@ -249,12 +305,12 @@ void pawn_get_info(pawn_info_t * info, const board_t * board) {
 
    if (UseTable) {
 
-      Pawn->write_nb++;
+      Pawn[ThreadId]->write_nb++;
 
       if (entry->lock == 0) { // HACK: assume free entry
-         Pawn->used++;
+         Pawn[ThreadId]->used++;
       } else {
-         Pawn->write_collision++;
+         Pawn[ThreadId]->write_collision++;
       }
 
       *entry = *info;
@@ -275,6 +331,8 @@ static void pawn_comp_info(pawn_info_t * info, const board_t * board) {
    int t1, t2;
    int n;
    int bits;
+   int support;
+   int pawn_support[ColourNb];
    int opening[ColourNb], endgame[ColourNb];
    int flags[ColourNb];
    int file_bits[ColourNb];
@@ -320,6 +378,8 @@ static void pawn_comp_info(pawn_info_t * info, const board_t * board) {
 
       opening[colour] = 0;
       endgame[colour] = 0;
+      
+      pawn_support[colour] = 0;
 
       flags[colour] = 0;
       file_bits[colour] = 0;
@@ -350,6 +410,29 @@ static void pawn_comp_info(pawn_info_t * info, const board_t * board) {
          if (rank == Rank2) flags[me] |= BackRankFlag;
 
          // features
+         
+         // pawn support/duos
+         
+         support = 0;
+         
+         if (me == White){
+
+             if (board->square[sq+1] == WP || board->square[sq-1] == WP)support += 2;
+         
+             if (board->square[sq+15] == WP || board->square[sq+17] == WP)support += 1;
+             else if (board->square[sq-15] == WP || board->square[sq-17] == WP)support += 1;
+         } else {
+         	 if (board->square[sq+1] == BP || board->square[sq-1] == BP)support += 2;
+         
+             if (board->square[sq+15] == BP || board->square[sq+17] == BP)support += 1;
+             else if (board->square[sq-15] == BP || board->square[sq-17] == BP)support += 1;
+         }
+         
+         if (support > 0){
+         	support += FileBonus[file];
+         	support += RankBonus[rank];
+         	pawn_support[me] += support;
+         }
 
          backward = false;
          candidate = false;
@@ -481,7 +564,12 @@ static void pawn_comp_info(pawn_info_t * info, const board_t * board) {
             endgame[me] += quad(PassedEndgameMin,PassedEndgameMax,rank);
          }
 */
-      }
+      }   
+      
+      // pawn duos / support
+      
+	  opening[me] += pawn_support[me]/2;
+      endgame[me] += pawn_support[me]/2;   
    }
 
    // store info

@@ -46,6 +46,8 @@ const int StackSize = 4096;
 
 struct board_t {
 
+   int piece_material[ColourNb]; // Thomas
+     	
    int square[SquareNb];
    int pos[SquareNb];
 
@@ -67,6 +69,7 @@ struct board_t {
    int sp; // TODO: MOVE ME?
 
    int cap_sq;
+	int moving_piece;
 
    int opening;
    int endgame;

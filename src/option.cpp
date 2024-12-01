@@ -24,35 +24,67 @@ struct option_t {
 
 static option_t Option[] = {
 
-   { "Hash", true, "16", "spin", "min 4 max 1024", NULL },
+#ifdef _WIN64
+   { "Hash", true, "128", "spin", "min 4 max 16384", NULL },
+#else
+   { "Hash", true, "64", "spin", "min 4 max 1024", NULL },
+#endif
+
+   // JAS
+   // search X seconds for the best move, equal to "go movetime"
+   { "Search Time",  true, "0",   "spin",  "min 0 max 3600", NULL },
+   // search X plies deep, equal to "go depth"
+   { "Search Depth",  true, "0",   "spin",  "min 0 max 20", NULL },
+   // JAS end
+
 
    { "Ponder", true, "false", "check", "", NULL },
 
    { "OwnBook",  true, "true",           "check",  "", NULL },
-   { "BookFile", true, "book_small.bin", "string", "", NULL },
+   { "BookFile", true, "performance.bin", "string", "", NULL },
+   { "MultiPV", true, "1", "spin",  "min 1 max 10", NULL },
+   
+   { "Hash Pruning", true, "true", "check", "", NULL },
+   { "Hash Pruning Depth",   true, "1",   "spin",  "min 0 max 6", NULL },
+   { "Hash Pruning Margin",   true, "100",   "spin",  "min 0 max 1000", NULL },
 
-   { "NullMove Pruning",       true, "Fail High", "combo", "var Always var Fail High var Never", NULL },
-   { "NullMove Reduction",     true, "3",         "spin",  "min 1 max 3", NULL },
-   { "Verification Search",    true, "Endgame",   "combo", "var Always var Endgame var Never", NULL },
-   { "Verification Reduction", true, "5",         "spin",  "min 1 max 6", NULL },
+   { "NullMove Pruning",       true, "Always", "combo", "var Always var Fail High var Never", NULL },
+   { "NullMove Reduction",     true, "3",         "spin",  "min 1 max 4", NULL },
+   //{ "Verification Search",    true, "Always",   "combo", "var Always var Endgame var Never", NULL },
+   //{ "Verification Reduction", true, "5",         "spin",  "min 1 max 6", NULL },
+   
+   { "Razoring", true, "true", "check", "", NULL },
+   { "Razoring Depth",   true, "4",   "spin",  "min 0 max 6", NULL },
+   { "Razoring Margin",   true, "300",   "spin",  "min 0 max 1000", NULL },
+   
+   { "Evaluation Pruning", true, "true", "check", "", NULL },
+   { "Evaluation Pruning Depth",   true, "5",   "spin",  "min 0 max 6", NULL },
 
    { "History Pruning",     true, "true", "check", "", NULL },
-   { "History Threshold",   true, "60",   "spin",  "min 0 max 100", NULL },
+   { "History Threshold",   true, "70",   "spin",  "min 0 max 100", NULL },
 
-   { "Futility Pruning", true, "false", "check", "", NULL },
-   { "Futility Margin",  true, "100",   "spin",  "min 0 max 500", NULL },
-
-   { "Delta Pruning", true, "false", "check", "", NULL },
+   { "Delta Pruning", true, "true", "check", "", NULL },
    { "Delta Margin",  true, "50",    "spin",  "min 0 max 500", NULL },
 
    { "Quiescence Check Plies", true, "1", "spin", "min 0 max 2", NULL },
 
    { "Material",        true, "100", "spin", "min 0 max 400", NULL },
    { "Piece Activity",  true, "100", "spin", "min 0 max 400", NULL },
+   { "Piece Square Activity",  true, "100", "spin", "min 0 max 400", NULL },
    { "King Safety",     true, "100", "spin", "min 0 max 400", NULL },
    { "Pawn Structure",  true, "100", "spin", "min 0 max 400", NULL },
    { "Passed Pawns",    true, "100", "spin", "min 0 max 400", NULL },
 
+   { "Toga Lazy Eval", true, "true", "check", "", NULL },
+   { "Toga Lazy Eval Margin",  true, "200",    "spin",  "min 0 max 900", NULL },
+   { "Toga Lazy Eval Mobility Margin",  true, "125",    "spin",  "min 0 max 900", NULL },
+   
+   { "Toga Exchange Bonus",  false, "20",    "spin",  "min 0 max 100", NULL }, 
+   { "Toga King Pawn Endgame Bonus",  true, "30",    "spin",  "min 0 max 100", NULL },
+   { "Toga Rook Pawn Endgame Penalty",  true, "10",    "spin",  "min 0 max 100", NULL },
+   
+   { "Number of Threads",   true, "1",   "spin",  "min 1 max 64", NULL },
+   
    { NULL, false, NULL, NULL, NULL, NULL, },
 };
 

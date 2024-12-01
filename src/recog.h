@@ -11,7 +11,7 @@
 
 // functions
 
-extern bool recog_draw (const board_t * board);
+extern bool recog_draw (const board_t * board, int ThreadId);
 
 #endif // !defined RECOG_H
 

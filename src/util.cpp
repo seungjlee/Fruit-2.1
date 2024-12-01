@@ -65,7 +65,7 @@ int my_round(double x) {
 
 // my_malloc()
 
-void * my_malloc(int size) {
+void * my_malloc(uint64 size) {
 
    void * address;
 
@@ -289,6 +289,45 @@ double my_timer_cpu_usage(const my_timer_t * timer) {
 
    return usage;
 }
+
+#ifndef _WIN32
+
+// The standard semaphore functions sem_init,sem_post,sem_wait, etc...
+// compile on MACOSX but do not work.
+// See
+// http://64.68.157.89/forum/viewtopic.php?t=24108&postdays=0&postorder=asc&topic_view=&start=30
+// For portability we provide our own versions.
+
+// my_sem_init()
+
+void my_sem_init(my_sem_t *sem, int value){
+    sem->value=value;
+    pthread_mutex_init(&(sem->mutex),NULL);
+    pthread_cond_init(&(sem->cond),NULL);
+}
+
+// my_sem_post()
+
+void my_sem_post(my_sem_t *sem){
+    pthread_mutex_lock(&(sem->mutex));
+    sem->value++;
+    pthread_cond_signal(&(sem->cond));
+    pthread_mutex_unlock(&(sem->mutex));
+}
+
+// my_sem_wait()
+
+void my_sem_wait(my_sem_t *sem){
+    pthread_mutex_lock(&(sem->mutex));
+    while(sem->value==0){
+        pthread_cond_wait(&(sem->cond),&(sem->mutex));
+    }
+    sem->value--;
+    pthread_mutex_unlock(&(sem->mutex));
+}
+#endif
+
+
 
 // end of util.cpp
 

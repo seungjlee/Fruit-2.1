@@ -48,9 +48,9 @@ bool input_available() {
 
    // have a look at the "local" buffer first, *this time before init (no idea if it helps)*
 
-   if (UseDebug && !init) printf("info string init=%d stdin->_cnt=%d\n",int(init),stdin->_cnt);
+   // if (UseDebug && !init) printf("info string init=%d stdin->_cnt=%d\n",int(init),stdin->_cnt);
 
-   if (stdin->_cnt > 0) return true; // HACK: assumes FILE internals
+   // if (stdin->_cnt > 0) return true; // HACK: assumes FILE internals
 
    // input init (only done once)
 

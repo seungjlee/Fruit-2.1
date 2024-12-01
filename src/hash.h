@@ -11,8 +11,8 @@
 
 // macros
 
-#define KEY_INDEX(key) (uint32(key))
-#define KEY_LOCK(key)  (uint32((key)>>32))
+#define KEY_INDEX(key) ((uint32)(key))
+#define KEY_LOCK(key)  ((uint32)((key)>>32))
 
 // constants
 

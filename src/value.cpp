@@ -81,10 +81,18 @@ int value_to_trans(int value, int height) {
    ASSERT(value_is_ok(value));
    ASSERT(height_is_ok(height));
 
-   if (value < -ValueEvalInf) {
+   /* if (value < -ValueEvalInf) {
       value -= height;
    } else if (value > +ValueEvalInf) {
       value += height;
+   } */
+
+   if (value < -ValueWin) {
+	   if(value < -ValueEvalInf) value -= height;
+	   else	if (value > -ValueEvalInf) value -= ValuePly * height;
+   } else if (value > +ValueWin) {
+	   if(value > ValueEvalInf) value += height;
+	   else if (value < +ValueWin) value += ValuePly * height;
    }
 
    ASSERT(value_is_ok(value));
@@ -99,10 +107,18 @@ int value_from_trans(int value, int height) {
    ASSERT(value_is_ok(value));
    ASSERT(height_is_ok(height));
 
-   if (value < -ValueEvalInf) {
+   /*if (value < -ValueEvalInf) {
       value += height;
    } else if (value > +ValueEvalInf) {
       value -= height;
+   }*/
+
+   if (value < -ValueWin) {
+	   if(value < -ValueEvalInf) value += height;
+	   else	if (value > -ValueEvalInf) value += ValuePly * height;
+   } else if (value > +ValueWin) {
+       if(value > ValueEvalInf) value -= height;
+	   else if (value < ValueEvalInf) value -= ValuePly * height;
    }
 
    ASSERT(value_is_ok(value));

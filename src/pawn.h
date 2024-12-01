@@ -50,12 +50,14 @@ extern int BitRev[0x100];
 // functions
 
 extern void pawn_init_bit ();
+extern void pawn_parameter();
 extern void pawn_init     ();
 
 extern void pawn_alloc    ();
-extern void pawn_clear    ();
+extern void pawn_free    ();
+extern void pawn_clear    (int ThreadId);
 
-extern void pawn_get_info (pawn_info_t * info, const board_t * board);
+extern void pawn_get_info (pawn_info_t * info, const board_t * board, int ThreadId);
 
 extern int  quad          (int y_min, int y_max, int x);
 
