@@ -130,33 +130,8 @@ void trans_init(trans_t * trans) {
 }
 
 // trans_alloc()
-
 void trans_alloc(trans_t * trans) {
-
-   uint64 size, target;
-
-   // calculate size
-
-   target = option_get_int("Hash");
-
-   if (target < 4) target = 16; // option.cpp
-
-#ifdef IS_64
-   if (target > 16384) target = 16384; // option.cpp
-#else
-   if (target > 1024) target = 1024; // option.cpp
-#endif
-
-   target *= 1024 * 1024;
-
-   for (size = 1; size != 0 && size <= target; size *= 2)
-      ;
-
-   size /= 2;
-   ASSERT(size>0&&size<=target);
-
-   // allocate table
-
+   uint32 size = 4 * 1024 * 1024;
    size /= sizeof(entry_t);
    ASSERT(size!=0&&(size&(size-1))==0); // power of 2
 

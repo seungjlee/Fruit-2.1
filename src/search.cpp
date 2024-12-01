@@ -44,11 +44,11 @@ static const bool UseEvent = true; // true
 static const bool UseShortSearch = true;
 static const int ShortSearchDepth = 1;
 
-static const bool DispBest = true; // true
-static const bool DispDepthStart = true; // true
-static const bool DispDepthEnd = true; // true
-static const bool DispRoot = true; // true
-static const bool DispStat = true; // true
+static const bool DispBest = false; // true
+static const bool DispDepthStart = false; // true
+static const bool DispDepthEnd = false; // true
+static const bool DispRoot = false; // true
+static const bool DispStat = false; // true
 
 static const bool UseEasy = true; // singular move
 static const int EasyThreshold = 150;
