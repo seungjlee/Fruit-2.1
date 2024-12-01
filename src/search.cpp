@@ -71,7 +71,7 @@ static pthread_t threat_handle[MaxThreads];
 static my_sem_t thread_runnable[MaxThreads];
 #endif
 
-int NumberThreads = 1;
+int NumberThreads = 2;
 
 //bool trans_endgame;
 //CRITICAL_SECTION CriticalSection; 

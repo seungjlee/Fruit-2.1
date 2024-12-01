@@ -15,6 +15,7 @@
 #include "piece.h"
 #include "protocol.h"
 #include "random.h"
+#include "search.h"
 #include "square.h"
 #include "trans.h"
 #include "util.h"
@@ -53,6 +54,8 @@ int main(int argc, char * argv[]) {
    hash_init();
    
    book_init();
+
+   printf("NumberThreads: %d\n", NumberThreads);
 
    // loop
 
