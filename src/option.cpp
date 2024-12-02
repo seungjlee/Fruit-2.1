@@ -24,8 +24,8 @@ struct option_t {
 
 static option_t Option[] = {
 
-#ifdef _WIN64
-   { "Hash", true, "128", "spin", "min 4 max 16384", NULL },
+#ifdef IS_64
+   { "Hash", true, "64", "spin", "min 4 max 16384", NULL },
 #else
    { "Hash", true, "64", "spin", "min 4 max 1024", NULL },
 #endif

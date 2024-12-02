@@ -958,6 +958,7 @@ static int full_quiescence(board_t * board, int alpha, int beta, int depth, int 
 
       value = eval(board, alpha, beta, ThreadId);
       
+      // see if hash can be used to improve the evaluation estimate
       if (trans_move != MoveNone && trans_value != ValueNone){
       	  // if (UseExact && TRANS_IS_EXACT(trans_flags)) value = trans_value; // HACK: not used as would've returned earlier
       	  if (TRANS_IS_LOWER(trans_flags) && trans_value > value) value = trans_value;

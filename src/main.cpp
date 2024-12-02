@@ -33,7 +33,7 @@ int main(int argc, char * argv[]) {
    util_init();
    my_random_init(); // for opening book
 
-   printf("Toga II 4.0 UCI based on Fruit 2.1 by Jerry Donald Watson, Thomas Gaksch and Fabien Letouzey. \n");
+   printf("Toga II 4.01 UCI based on Fruit 2.1 by Jerry Donald Watson, Thomas Gaksch and Fabien Letouzey. \n");
    //printf("Code was based on Toga II 1.4.1SE by Thomas Gaksch (modified by Chris Formula), with bugfixes by Michel van den Bergh\n");
 
    // early initialisation (the rest is done after UCI options are parsed in protocol.cpp)

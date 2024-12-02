@@ -48,6 +48,26 @@
 #  define ASSERT(a)
 #endif
 
+#if !defined(IS_32) && !defined(IS_64)
+#  ifdef __GNUC__
+#     define IS_UNIX TRUE
+#     ifdef __x86_64__
+#        define IS_64 TRUE
+#     else
+#        define IS_32 TRUE
+#     endif
+#  endif
+#  if defined(_WIN32) || defined(_WIN64)
+#     undef IS_UNIX
+#     define IS_WINDOWS TRUE
+#     ifdef _WIN64
+#        define IS_64 TRUE
+#     else
+#        define IS_32 TRUE
+#     endif
+#  endif
+#endif
+
 // types
 
 typedef signed char sint8;
