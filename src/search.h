@@ -18,7 +18,7 @@
 const int MultiPVMax = 10;
 const int MaxThreads = 2;
 
-const int DepthMax = 64;
+const int DepthMax = 96;
 const int HeightMax = 256;
 const int HeightNone = -1;
 
