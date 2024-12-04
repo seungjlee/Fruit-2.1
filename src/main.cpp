@@ -55,7 +55,7 @@ int main(int argc, char * argv[]) {
    
    book_init();
 
-   printf("NumberThreads: %d\n", NumberThreads);
+   //printf("NumberThreads: %d\n", NumberThreads);
 
    // loop
 

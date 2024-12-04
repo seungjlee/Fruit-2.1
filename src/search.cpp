@@ -661,6 +661,7 @@ void search_update_best(int ThreadId) {
 		  }
 	  }
 	  
+#ifdef DUMP_MULTIPV_RESULTS
       if (depth > 1 || (depth == 1 && SearchCurrent[ThreadId]->multipv == SearchInput->multipv)){
 		  for (i = 0; i <= SearchInput->multipv; i++){
 
@@ -692,6 +693,7 @@ void search_update_best(int ThreadId) {
 			  }
 		  }
 	  }
+#endif
    }
 
    // update time-management info

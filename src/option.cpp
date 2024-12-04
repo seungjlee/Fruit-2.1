@@ -44,7 +44,7 @@ static option_t Option[] = {
    { "OwnBook",  true, "true",           "check",  "", NULL },
 #endif
    { "BookFile", true, "performance.bin", "string", "", NULL },
-   { "MultiPV", true, "1", "spin",  "min 1 max 10", NULL },
+   { "MultiPV", true, "2", "spin",  "min 1 max 4", NULL },
    
    { "Hash Pruning", true, "true", "check", "", NULL },
    { "Hash Pruning Depth",   true, "1",   "spin",  "min 0 max 6", NULL },
@@ -85,7 +85,7 @@ static option_t Option[] = {
    { "Toga King Pawn Endgame Bonus",  true, "30",    "spin",  "min 0 max 100", NULL },
    { "Toga Rook Pawn Endgame Penalty",  true, "10",    "spin",  "min 0 max 100", NULL },
    
-   { "Number of Threads",   true, "1",   "spin",  "min 1 max 64", NULL },
+   { "Number of Threads",   true, "1",   "spin",  "min 1 max 2", NULL },
    
    { NULL, false, NULL, NULL, NULL, NULL, },
 };

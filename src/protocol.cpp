@@ -268,7 +268,7 @@ static void loop_step() {
       send("id name Toga II " VERSION);
       send("id author Jerry Donald Watson, Thomas Gaksch and Fabien Letouzey");
 
-      option_list();
+      //option_list();
 
       send("uciok");
 
@@ -623,8 +623,8 @@ static void send_best_move() {
 
    double time, speed, cpu;
    sint64 node_nb;
-   char move_string[256];
-   char ponder_string[256];
+   char move_string[32];
+   char ponder_string[32];
    int move;
    int ThreadId, bestThreadId;
    mv_t * pv;
@@ -645,11 +645,13 @@ static void send_best_move() {
 		node_nb += SearchCurrent[ThreadId]->node_nb;
    }
 
+#ifdef DUMP_SEARCH_STATS
    send("info time %.0f nodes " S64_FORMAT " nps %.0f cpuload %.0f",time*1000.0,node_nb,speed,cpu*1000.0);
 
    trans_stats(Trans);
    // pawn_stats();
    // material_stats();
+#endif
 
    // best move
 
@@ -664,7 +666,7 @@ static void send_best_move() {
    move = SearchBest[bestThreadId][0].move;
    pv = SearchBest[bestThreadId][0].pv;
 
-   move_to_string(move,move_string,256);
+   move_to_string(move,move_string,sizeof(move_string));
 
   /* move_to_string(SearchBest[1][0].move,ponder_string,256);
    if (SearchBest[0][0].move != SearchBest[1][0].move){
@@ -675,7 +677,7 @@ static void send_best_move() {
    }*/
 
    if (pv[0] == move && move_is_ok(pv[1])) {
-      move_to_string(pv[1],ponder_string,256);
+      move_to_string(pv[1],ponder_string,sizeof(ponder_string));
       send("bestmove %s ponder %s",move_string,ponder_string);
    } else {
       send("bestmove %s",move_string);
@@ -699,7 +701,7 @@ void get(char string[], int size) {
 void send(const char format[], ...) {
 
    va_list arg_list;
-   char string[4096];
+   char string[128];
 
    ASSERT(format!=NULL);
 
