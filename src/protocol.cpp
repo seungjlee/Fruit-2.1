@@ -70,6 +70,7 @@ static bool string_start_with (const char s1[], const char s2[]);
 
 // functions
 
+#ifdef USE_OPENING_BOOK
 void book_parameter() {
 
     // UCI options
@@ -81,6 +82,7 @@ void book_parameter() {
 
 
 }
+#endif
 
 // loop()
 
@@ -116,7 +118,9 @@ static void init() {
       NumberThreads=option_get_int("Number of Threads");
       if(NumberThreads>MaxThreads) NumberThreads=MaxThreads;
 		
+#ifdef USE_OPENING_BOOK
       book_parameter();
+#endif
       
 	   //SearchInput->multipv = option_get_int("MultiPV");
 
@@ -231,7 +235,9 @@ static void loop_step() {
          parse_setoption(string);
 		 pawn_parameter();
 		 material_parameter();
+#ifdef USE_OPENING_BOOK
 		 book_parameter();
+#endif
 		 pst_init();
 		 eval_parameter();
       } else {

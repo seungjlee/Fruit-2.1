@@ -24,7 +24,10 @@ extern  pthread_mutex_t CriticalSection;
 
 extern void loop  ();
 extern void event ();
+
+#ifdef USE_OPENING_BOOK
 extern void book_parameter();
+#endif
 
 extern void get   (char string[], int size);
 extern void send  (const char format[], ...);

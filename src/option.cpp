@@ -40,7 +40,9 @@ static option_t Option[] = {
 
    { "Ponder", true, "false", "check", "", NULL },
 
+#ifdef USE_OPENING_BOOK
    { "OwnBook",  true, "true",           "check",  "", NULL },
+#endif
    { "BookFile", true, "performance.bin", "string", "", NULL },
    { "MultiPV", true, "1", "spin",  "min 1 max 10", NULL },
    

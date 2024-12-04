@@ -262,6 +262,7 @@ void search() {
 
    // opening book
 
+#ifdef USE_OPENING_BOOK
    if (option_get_bool("OwnBook") && !SearchInput->infinite) {
 
       move = book_move(SearchInput->board);
@@ -282,6 +283,7 @@ void search() {
          return;
       }
    }
+#endif
 
    // SearchInput
 
