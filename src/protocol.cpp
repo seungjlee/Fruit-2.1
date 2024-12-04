@@ -701,7 +701,7 @@ void get(char string[], int size) {
 void send(const char format[], ...) {
 
    va_list arg_list;
-   char string[128];
+   char string[256];
 
    ASSERT(format!=NULL);
 
