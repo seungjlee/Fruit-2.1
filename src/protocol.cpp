@@ -150,7 +150,11 @@ void event() {
    while (!SearchInfo[0]->stop && input_available()) loop_step();
 }
 
-static void OptimizedSearch(double movetime) {
+static void OptimizedSearch(char* command) {
+   const char* ptr = strtok(command," ");
+   ptr = strtok(NULL, " ");
+   double movetime = std::atoi(ptr) * 1e-3;
+
    search_clear();
    SearchInput->time_is_limited = true;
    SearchInput->time_limit_1 = movetime;
@@ -188,13 +192,9 @@ static void loop_step() {
 
    // parse
 
-   if (string_start_with(string, "gp ")) {
-      const char* ptr = strtok(string," ");
-      ptr = strtok(NULL, " ");
-      double movetime = std::atoi(ptr) * 1e-3;
-      init();
+   if (string_start_with(string,"gp ")) {
       parse_position(string);
-      OptimizedSearch(movetime);
+      OptimizedSearch(string);
    } else if (string_start_with(string,"debug ")) {
 
       // dummy
