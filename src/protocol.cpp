@@ -192,6 +192,7 @@ static void loop_step() {
       const char* ptr = strtok(string," ");
       ptr = strtok(NULL, " ");
       double movetime = std::atoi(ptr) * 1e-3;
+      init();
       parse_position(string);
       OptimizedSearch(movetime);
    } else if (string_start_with(string,"debug ")) {
