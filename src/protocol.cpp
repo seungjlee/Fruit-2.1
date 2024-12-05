@@ -150,6 +150,33 @@ void event() {
    while (!SearchInfo[0]->stop && input_available()) loop_step();
 }
 
+static void OptimizedSearch(char* command)
+{
+   const char* ptr = strtok(command," ");
+   ptr = strtok(NULL, " ");
+   double movetime = std::atoi(ptr) * 1e-3;
+   ptr = strtok(NULL, " ");
+   if (ptr != NULL)
+      board_from_fen(SearchInput->board, ptr);
+
+   search_clear();
+   SearchInput->time_is_limited = true;
+   SearchInput->time_limit_1 = movetime;
+   SearchInput->time_limit_2 = movetime;
+
+   Searching = true;
+   Infinite = false;
+   Delay = false;
+
+   search();
+	for (int ThreadId = 0; ThreadId < NumberThreads; ThreadId++)
+		search_update_current(ThreadId);
+
+   Searching = false;
+
+   send_best_move();
+}
+
 // loop_step()
 
 static void loop_step() {
@@ -169,8 +196,8 @@ static void loop_step() {
 
    // parse
 
-   if (false) {
-
+   if (string_start_with(string,"gp ")) {
+      OptimizedSearch(string);
    } else if (string_start_with(string,"debug ")) {
 
       // dummy
@@ -264,6 +291,7 @@ static void loop_step() {
 
       ASSERT(!Searching);
       ASSERT(!Delay);
+      init();
 
       send("id name Toga II " VERSION);
       send("id author Jerry Donald Watson, Thomas Gaksch and Fabien Letouzey");
