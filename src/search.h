@@ -18,8 +18,8 @@
 const int MultiPVMax = 4;
 const int MaxThreads = 2;
 
-const int DepthMax = 16;
-const int HeightMax = 16;
+const int DepthMax = 32;
+const int HeightMax = 32;
 const int HeightNone = -1;
 
 const int SearchNormal = 0;
