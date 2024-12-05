@@ -150,14 +150,37 @@ void event() {
    while (!SearchInfo[0]->stop && input_available()) loop_step();
 }
 
-static void OptimizedSearch(char* command)
-{
+static void OptimizedSearch(char* command) {
    const char* ptr = strtok(command," ");
    ptr = strtok(NULL, " ");
    double movetime = std::atoi(ptr) * 1e-3;
    ptr = strtok(NULL, " ");
-   if (ptr != NULL)
+   if (ptr != NULL) {
+      char move_string[256];
+      undo_t undo[1];
+      char* moves = strstr(command,"moves ");
+      moves[-1] = 0;
       board_from_fen(SearchInput->board, ptr);
+      
+      ptr = moves + 6;
+      while (*ptr != '\0') {
+         move_string[0] = *ptr++;
+         move_string[1] = *ptr++;
+         move_string[2] = *ptr++;
+         move_string[3] = *ptr++;
+
+         if (*ptr == '\0' || *ptr == ' ') {
+            move_string[4] = '\0';
+         } else { // promote
+            move_string[4] = *ptr++;
+            move_string[5] = '\0';
+         }
+
+         int move = move_from_string(move_string,SearchInput->board);
+         move_do(SearchInput->board,move,undo);
+         while (*ptr == ' ') ptr++;
+      }
+   }
 
    search_clear();
    SearchInput->time_is_limited = true;
