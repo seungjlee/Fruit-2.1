@@ -238,7 +238,6 @@ void search() {
 
    int move;
    int i;
-   bool all_stopped;
    int ThreadId; 
            
    for (i = 0; i < MultiPVMax; i++){
@@ -300,17 +299,20 @@ void search() {
 
    trans_inc_date(Trans);
 
+#ifdef MULTITHREAD_ENABLED
    // resume threads
-
    resume_threads();
+#endif
 
    //SearchInfo_smp->stop = true;
    search_smp(0);
+
+#ifdef MULTITHREAD_ENABLED
    for (ThreadId = 1; ThreadId < NumberThreads; ThreadId++){ // stop threads
 		SearchInfo[ThreadId]->stop = true;
    }
-
-   all_stopped = false;
+   
+   bool all_stopped = false;
    while (!all_stopped){
 	   all_stopped = true;
 	   for (ThreadId = 1; ThreadId < NumberThreads; ThreadId++){
@@ -318,6 +320,7 @@ void search() {
 				all_stopped = false;
 	   }
    }
+#endif
 }
 
 #ifdef _WIN32
@@ -354,7 +357,6 @@ void * search_thread (void *param) {
 // search_smp()
 
 void search_smp(int ThreadId) {
-
    int depth;
    int i;
    int delta, alpha, beta;
@@ -402,9 +404,11 @@ void search_smp(int ThreadId) {
    // iterative deepening
 
    search_ready = false;
-   
 
-   if (ThreadId == 0){ // main thread
+#ifdef MULTITHREAD_ENABLED
+    if (ThreadId == 0) // main thread
+#endif
+		{
 	   for (depth = 1; depth < DepthMax; depth++) {
 	   	   delta = 16; 
 		   for (SearchCurrent[ThreadId]->multipv = 0; SearchCurrent[ThreadId]->multipv <= SearchInput->multipv; SearchCurrent[ThreadId]->multipv++){
@@ -526,8 +530,10 @@ void search_smp(int ThreadId) {
 		   if (search_ready)
 			   break;
 	   }
-   }
-   else {
+    }
+#ifdef MULTITHREAD_ENABLED
+    else
+		{
 	   for (depth = 1; depth < DepthMax; depth++) {
 	   	  delta = 16; 
 		  SearchInfo[ThreadId]->can_stop = true;
@@ -568,7 +574,8 @@ void search_smp(int ThreadId) {
 		  search_update_current(ThreadId);
 
 	   }
-   }
+    }
+#endif
 }
 
 // search_update_best()

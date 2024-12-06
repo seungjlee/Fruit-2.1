@@ -44,7 +44,7 @@ static option_t Option[] = {
    { "OwnBook",  true, "true",           "check",  "", NULL },
 #endif
    { "BookFile", true, "performance.bin", "string", "", NULL },
-   { "MultiPV", true, "2", "spin",  "min 1 max 4", NULL },
+   { "MultiPV", true, "1", "spin",  "min 1 max 4", NULL },
    
    { "Hash Pruning", true, "true", "check", "", NULL },
    { "Hash Pruning Depth",   true, "1",   "spin",  "min 0 max 6", NULL },

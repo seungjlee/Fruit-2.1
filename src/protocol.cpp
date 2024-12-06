@@ -165,8 +165,11 @@ static void OptimizedSearch(char* command) {
    Delay = false;
 
    search();
-	for (int ThreadId = 0; ThreadId < NumberThreads; ThreadId++)
+   search_update_current(0);
+#ifdef MULTITHREAD_ENABLED
+	for (int ThreadId = 1; ThreadId < NumberThreads; ThreadId++)
 		search_update_current(ThreadId);
+#endif
 
    Searching = false;
 
