@@ -10,6 +10,7 @@
 #include "value.h"
 
 #include <cstdint>
+#include <cstring>
 
 #ifdef USE_MTL
 #include <MTL/Array.h>
@@ -36,39 +37,27 @@ bool list_is_ok(const list_t * list) {
 
 // list_remove()
 
-void list_remove(list_t * list, int pos) {
+void list_remove(list_t* list, int pos)
+{
+  ASSERT(list_is_ok(list));
+  ASSERT(pos>=0&&pos<list->size);
 
-   int i;
+  size_t size = list->size - pos - 1;
+  memcpy(list->move  + pos, list->move  + pos + 1, sizeof(list->move[0] ) * size);
+  memcpy(list->value + pos, list->value + pos + 1, sizeof(list->value[0]) * size);
 
-   ASSERT(list_is_ok(list));
-   ASSERT(pos>=0&&pos<list->size);
-
-   for (i = pos; i < list->size-1; i++) {
-      list->move[i] = list->move[i+1];
-      list->value[i] = list->value[i+1];
-   }
-
-   list->size--;
+  list->size--;
 }
 
-// list_copy()
+void list_copy(list_t * dst, const list_t * src)
+{
+  ASSERT(dst!=NULL);
+  ASSERT(list_is_ok(src));
 
-void list_copy(list_t * dst, const list_t * src) {
-
-   int i;
-
-   ASSERT(dst!=NULL);
-   ASSERT(list_is_ok(src));
-
-   dst->size = src->size;
-
-   for (i = 0; i < src->size; i++) {
-      dst->move[i] = src->move[i];
-      dst->value[i] = src->value[i];
-   }
+  dst->size = src->size;
+  memcpy(dst->move,  src->move,  sizeof(src->move[0] ) * src->size);
+  memcpy(dst->value, src->value, sizeof(src->value[0]) * src->size);
 }
-
-// list_sort()
 
 void list_sort(list_t * list) {
 
@@ -100,14 +89,6 @@ void list_sort(list_t * list) {
       list->move[j] = move;
       list->value[j] = value;
    }
-
-   // debug
-
-   if (DEBUG) {
-      for (i = 0; i < size-1; i++) {
-         ASSERT(list->value[i]>=list->value[i+1]);
-      }
-   }
 }
 
 // list_contain()
@@ -123,12 +104,13 @@ bool list_contain(const list_t * list, int move)
   X256<uint16_t> match((uint16_t)move);
   FOR_STREAM_TYPE(p, list->size, uint16_t) {
     X256<uint16_t> mask = X256<uint16_t>(p) == match;
-    if (Sum<X256<uint16_t>::Increment>(mask.pData()) != 0)
+    if (Sum<X256<int64_t>::Increment>(reinterpret_cast<const int64_t*>(mask.pData())) != 0)
       return true;
   }
 #endif
   for (; p < pEnd; p++) {
-    if (*p == move) return true;
+    if (*p == move)
+      return true;
   }
 
   return false;
