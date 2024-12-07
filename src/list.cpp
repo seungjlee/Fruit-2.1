@@ -9,6 +9,14 @@
 #include "util.h"
 #include "value.h"
 
+#include <cstdint>
+
+#ifdef USE_MTL
+#include <MTL/Array.h>
+#include <MTL/Stream/AVX.h>
+using namespace MTL;
+#endif
+
 // constants
 
 static const bool UseStrict = true;
@@ -104,18 +112,26 @@ void list_sort(list_t * list) {
 
 // list_contain()
 
-bool list_contain(const list_t * list, int move) {
+bool list_contain(const list_t * list, int move)
+{
+  ASSERT(list_is_ok(list));
+  ASSERT(move_is_ok(move));
 
-   int i;
+  const uint16_t* p = list->move;
+  const uint16_t* pEnd = p + list->size;
+#ifdef USE_MTL
+  X256<uint16_t> match((uint16_t)move);
+  FOR_STREAM_TYPE(p, list->size, uint16_t) {
+    X256<uint16_t> mask = X256<uint16_t>(p) == match;
+    if (Sum<X256<uint16_t>::Increment>(mask.pData()) != 0)
+      return true;
+  }
+#endif
+  for (; p < pEnd; p++) {
+    if (*p == move) return true;
+  }
 
-   ASSERT(list_is_ok(list));
-   ASSERT(move_is_ok(move));
-
-   for (i = 0; i < list->size; i++) {
-      if (list->move[i] == move) return true;
-   }
-
-   return false;
+  return false;
 }
 
 // list_note()

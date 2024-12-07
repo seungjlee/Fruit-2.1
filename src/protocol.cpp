@@ -39,12 +39,13 @@ static const double PonderRatio = 1.25;
 
 // variables
 
+#ifdef MULTITHREAD_ENABLED
 #ifdef _WIN32
 CRITICAL_SECTION CriticalSection; 
 #else
 pthread_mutex_t CriticalSection=PTHREAD_MUTEX_INITIALIZER;
 #endif
-
+#endif
 
 static bool Init;
 
@@ -138,7 +139,9 @@ static void init() {
 	  InitializeCriticalSection(&CriticalSection);
 #endif
 	  SearchInput->exit_engine = false;
+#ifdef MULTITHREAD_ENABLED
 	  start_suspend_threads();
+#endif
    }
 
 }

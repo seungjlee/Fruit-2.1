@@ -45,11 +45,10 @@ const int StackSize = 4096;
 // types
 
 struct board_t {
+   alignas(32) int square[SquareNb];
+   alignas(32) int pos[SquareNb];
 
    int piece_material[ColourNb]; // Thomas
-     	
-   int square[SquareNb];
-   int pos[SquareNb];
 
    sq_t piece[ColourNb][32]; // only 17 are needed
    int piece_size[ColourNb];
@@ -86,7 +85,6 @@ struct board_t {
 extern bool board_is_ok         (const board_t * board);
 
 extern void board_clear         (board_t * board);
-extern void board_copy          (board_t * dst, const board_t * src);
 
 extern void board_init_list     (board_t * board);
 

@@ -32,7 +32,8 @@ CXXFLAGS += -O3 -fstrict-aliasing
 CXXFLAGS += -fomit-frame-pointer
 CXXFLAGS += -std=c++17 -mavx -mavx2 -mfma
 CXXFLAGS += -DDUMP_SEARCH_STATS -DDUMP_MULTIPV_RESULTS
-# CXXFLAGS += -march=athlon-xp # SELECT ME
+CXXFLAGS += -DUSE_MTL -DMTL_ENABLE_AVX
+CXXFLAGS += -I../../../MTL/include
 
 # strip
 

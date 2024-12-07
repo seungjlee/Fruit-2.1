@@ -15,6 +15,7 @@ const int FileNb = 16;
 const int RankNb = 16;
 
 const int SquareNb = FileNb * RankNb;
+static_assert(SquareNb % 8 == 0);
 
 const int FileInc = +1;
 const int RankInc = +16;

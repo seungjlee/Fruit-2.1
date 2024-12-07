@@ -231,10 +231,8 @@ void search_full_init(list_t * list, board_t * board, int ThreadId) {
 
 // search_full_root()
 
-int search_full_root(list_t * list, board_t * board, int a, int b, int depth, int search_type, int ThreadId) {
-
-   int value;
-
+int search_full_root(list_t * list, board_t * board, int a, int b, int depth, int search_type, int ThreadId)
+{
    ASSERT(list_is_ok(list));
    ASSERT(board_is_ok(board));
    ASSERT(depth_is_ok(depth));
@@ -246,7 +244,7 @@ int search_full_root(list_t * list, board_t * board, int a, int b, int depth, in
    ASSERT(board_is_legal(board));
    ASSERT(depth>=1);
 
-   value = full_root(list,board,a,b,depth,0,search_type, ThreadId);
+   int value = full_root(list,board,a,b,depth,0,search_type, ThreadId);
 
    ASSERT(value_is_ok(value));
    ASSERT(LIST_VALUE(list,0)==value);
@@ -256,8 +254,8 @@ int search_full_root(list_t * list, board_t * board, int a, int b, int depth, in
 
 // full_root()
 
-static int full_root(list_t * list, board_t * board, int alpha, int beta, int depth, int height, int search_type, int ThreadId) {
-
+static int full_root(list_t * list, board_t * board, int alpha, int beta, int depth, int height, int search_type, int ThreadId)
+{
    int old_alpha;
    int value, best_value[MultiPVMax];
    int i, move, j;
@@ -281,7 +279,6 @@ static int full_root(list_t * list, board_t * board, int alpha, int beta, int de
    ASSERT(depth>=1);
 
    // init
-
    SearchCurrent[ThreadId]->node_nb++;
    SearchInfo[ThreadId]->check_nb--;
    SearchCurrent[ThreadId]->trans_reduction = false;
@@ -294,10 +291,9 @@ static int full_root(list_t * list, board_t * board, int alpha, int beta, int de
    best_value[SearchCurrent[ThreadId]->multipv] = ValueNone;
 
    // move loop
-
-   for (i = 0; i < LIST_SIZE(list); i++) {
-
-      move = LIST_MOVE(list,i);
+   for (i = 0; i < LIST_SIZE(list); i++)
+   {
+     move = LIST_MOVE(list,i);
 
 	  if (SearchCurrent[ThreadId]->multipv > 0){
 		  found = false;

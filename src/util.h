@@ -87,6 +87,7 @@ typedef unsigned int uint32;
   typedef unsigned long long int uint64;
 #endif
 
+#ifdef MULTITHREAD_ENABLED
 #ifndef _WIN32
 #include <pthread.h>
 typedef struct {
@@ -94,6 +95,7 @@ typedef struct {
     pthread_mutex_t mutex;
     pthread_cond_t cond;
 } my_sem_t;
+#endif
 #endif
 
 struct my_timer_t {
@@ -137,10 +139,12 @@ extern double my_timer_elapsed_real (const my_timer_t * timer);
 extern double my_timer_elapsed_cpu  (const my_timer_t * timer);
 extern double my_timer_cpu_usage    (const my_timer_t * timer);
 
+#ifdef MULTITHREAD_ENABLED
 #ifndef _WIN32
 extern void my_sem_init(my_sem_t *sem, int value);
 extern void my_sem_post(my_sem_t *sem);
 extern void my_sem_wait(my_sem_t *sem);
+#endif
 #endif
 
 #endif // !defined UTIL_H

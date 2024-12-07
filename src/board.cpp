@@ -2,7 +2,7 @@
 // board.cpp
 
 // includes
-
+#include <cstring>
 #include "attack.h"
 #include "board.h"
 #include "colour.h"
@@ -19,6 +19,11 @@
 #include "pst.h"
 #include "util.h"
 #include "value.h"
+
+#ifdef USE_MTL
+#include <MTL/Stream/AVX.h>
+using namespace MTL;
+#endif
 
 // constants
 
@@ -177,10 +182,17 @@ void board_clear(board_t * board) {
    ASSERT(board!=NULL);
 
    // edge squares
-
+#ifdef USE_MTL
+  X256<int> xEdge(Edge);
+  int* ptr = board->square;
+  FOR_STREAM_TYPE(ptr, SquareNb, int) {
+    xEdge.StorePackedAligned(ptr);
+  }
+#else
    for (sq = 0; sq < SquareNb; sq++) {
       board->square[sq] = Edge;
    }
+#endif
 
    // empty squares
 
@@ -195,16 +207,6 @@ void board_clear(board_t * board) {
    board->flags = FlagsNone;
    board->ep_square = SquareNone;
    board->ply_nb = 0;
-}
-
-// board_copy()
-
-void board_copy(board_t * dst, const board_t * src) {
-
-   ASSERT(dst!=NULL);
-   ASSERT(board_is_ok(src));
-
-   *dst = *src;
 }
 
 // board_init_list()

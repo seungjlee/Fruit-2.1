@@ -7,7 +7,9 @@
 #include <windows.h>
 #include <process.h>
 #else
+#ifdef MULTITHREAD_ENABLED
 #include <pthread.h>
+#endif
 #include <errno.h>
 #include <unistd.h>
 #endif
@@ -64,11 +66,14 @@ static const bool UseExtension = true;
 // variables
 
 static search_multipv_t save_multipv[MultiPVMax];
+
+#ifdef MULTITHREAD_ENABLED
 #ifdef _WIN32
 static HANDLE threat_handle[MaxThreads];
 #else
 static pthread_t threat_handle[MaxThreads];
 static my_sem_t thread_runnable[MaxThreads];
+#endif
 #endif
 
 int NumberThreads = 1;
@@ -111,10 +116,9 @@ bool height_is_ok(int height)
 
 void search_clear()
 {
-  int ThreadId;
+  int ThreadId = 0;
 
   // SearchInput
-
   SearchInput->infinite = false;
   SearchInput->depth_is_limited = false;
   SearchInput->depth_limit = 0;
@@ -122,9 +126,11 @@ void search_clear()
   SearchInput->time_limit_1 = 0.0;
   SearchInput->time_limit_2 = 0.0;
 
-  // SearchInfo
-
-  for (ThreadId = 0; ThreadId < NumberThreads; ThreadId++) {
+#ifdef MULTITHREAD_ENABLED
+  for (ThreadId = 0; ThreadId < NumberThreads; ThreadId++)
+#endif
+	{
+	  // SearchInfo
     SearchInfo[ThreadId]->can_stop = false;
     SearchInfo[ThreadId]->stop = false;
     SearchInfo[ThreadId]->stopped = false;
@@ -134,7 +140,6 @@ void search_clear()
     SearchInfo[ThreadId]->last_time = 0.0;
 
     // SearchBest
-
     SearchBest[ThreadId][SearchCurrent[ThreadId]->multipv].move = MoveNone;
     SearchBest[ThreadId][SearchCurrent[ThreadId]->multipv].value = 0;
     SearchBest[ThreadId][SearchCurrent[ThreadId]->multipv].flags = SearchUnknown;
@@ -142,7 +147,6 @@ void search_clear()
     PV_CLEAR(SearchBest[ThreadId][SearchCurrent[ThreadId]->multipv].pv);
 
     // SearchRoot
-
     SearchRoot[ThreadId]->depth = 0;
     SearchRoot[ThreadId]->move = MoveNone;
     SearchRoot[ThreadId]->move_pos = 0;
@@ -155,7 +159,6 @@ void search_clear()
     SearchRoot[ThreadId]->flag = false;
 
     // SearchCurrent
-
     SearchCurrent[ThreadId]->max_depth = 0;
     SearchCurrent[ThreadId]->node_nb = 0;
     SearchCurrent[ThreadId]->time = 0.0;
@@ -185,28 +188,29 @@ void resume_threads()
   }
 }
 #else
-void start_suspend_threads(){
+void start_suspend_threads()
+{
+#ifdef MULTITHREAD_ENABLED
+	static int ThreadIds[MaxThreads];
+	int i;
 
-   static int ThreadIds[MaxThreads];
-   int i;
+	// start and suspend threads
 
-   // start and suspend threads
-
-   for (i = 1; i < NumberThreads; i++){
-	    ThreadIds[i-1] = i;
-        my_sem_init(&(thread_runnable[i-1]),0);
-	    pthread_create(&(threat_handle[i-1]),NULL,
-			   search_thread,&(ThreadIds[i-1]));
-   }
-
+	for (i = 1; i < NumberThreads; i++){
+		ThreadIds[i-1] = i;
+		my_sem_init(&(thread_runnable[i-1]), 0);
+		pthread_create(&(threat_handle[i-1]), NULL, search_thread, &(ThreadIds[i-1]));
+	}
+#endif
 }
 void resume_threads(){
-
-   int i;
-   // resume threads
-   for (i = 1; i < NumberThreads; i++){
-       my_sem_post(&(thread_runnable[i-1]));
-   }
+#ifdef MULTITHREAD_ENABLED
+	int i;
+	// resume threads
+	for (i = 1; i < NumberThreads; i++) {
+		my_sem_post(&(thread_runnable[i-1]));
+	}
+#endif
 }
 #endif
 
@@ -334,8 +338,9 @@ unsigned __stdcall search_thread(void *param)
   return 0;
 }
 #else
-void * search_thread (void *param) {
-
+void* search_thread(void* param)
+{
+#ifdef MULTITHREAD_ENABLED
 	int ThreadId = *((int*)param);
 	SearchInfo[ThreadId]->exited= false;
 	my_sem_wait(&(thread_runnable[ThreadId-1]));
@@ -345,6 +350,7 @@ void * search_thread (void *param) {
 	  my_sem_wait(&(thread_runnable[ThreadId-1]));
 	}
 	SearchInfo[ThreadId]->exited= true;
+#endif
 	return NULL;
 }
 #endif
@@ -376,7 +382,7 @@ void search_smp(int ThreadId)
 
   // SearchCurrent
 
-  board_copy(SearchCurrent[ThreadId]->board, SearchInput->board);
+  memcpy(SearchCurrent[ThreadId]->board, SearchInput->board, sizeof(board_t));
   my_timer_reset(SearchCurrent[ThreadId]->timer);
   my_timer_start(SearchCurrent[ThreadId]->timer);
 
@@ -405,16 +411,17 @@ void search_smp(int ThreadId)
   if (ThreadId == 0) // main thread
 #endif
   {
-    for (depth = 1; depth < DepthMax; depth++) {
+    for (depth = 1; depth < DepthMax; depth++)
+		{
       delta = 16;
-      for (SearchCurrent[ThreadId]->multipv = 0; SearchCurrent[ThreadId]->multipv <= SearchInput->multipv; SearchCurrent[ThreadId]->multipv++) {
-
+      for (SearchCurrent[ThreadId]->multipv = 0; SearchCurrent[ThreadId]->multipv <= SearchInput->multipv; SearchCurrent[ThreadId]->multipv++)
+			{
         if (DispDepthStart && SearchCurrent[ThreadId]->multipv == 0) send("info depth %d", depth);
 
         SearchRoot[ThreadId]->bad_1 = false;
         SearchRoot[ThreadId]->change = false;
 
-        board_copy(SearchCurrent[ThreadId]->board, SearchInput->board);
+        memcpy(SearchCurrent[ThreadId]->board, SearchInput->board, sizeof(board_t));
 
         // Aspiration windows (JD)
 
@@ -537,7 +544,7 @@ void search_smp(int ThreadId)
       delta = 16;
       SearchInfo[ThreadId]->can_stop = true;
 
-      board_copy(SearchCurrent[ThreadId]->board, SearchInput->board);
+      memcpy(SearchCurrent[ThreadId]->board, SearchInput->board, sizeof(board_t));
 
       // Aspiration windows
       if (depth <= 4) {	// Try other values	  
@@ -585,7 +592,7 @@ void search_smp(int ThreadId)
 void search_update_best(int ThreadId)
 {
   int move, value, flags, depth, max_depth;
-  const mv_t * pv;
+  const mv_t* pv;
   double time;
   sint64 node_nb;
   int mate, i, z;
@@ -593,18 +600,18 @@ void search_update_best(int ThreadId)
   char move_string[256], pv_string[512];
 
   search_update_current(ThreadId);
+
+#ifdef MULTITHREAD_ENABLED
+
 #ifdef _WIN32
   EnterCriticalSection(&CriticalSection);
 #else
   pthread_mutex_lock(&CriticalSection);
 #endif
 
-  /*   if (DispBest &&
-        (save_multipv[0].depth < SearchBest[ThreadId][0].depth ||
-             (save_multipv[0].depth == SearchBest[ThreadId][0].depth &&
-             save_multipv[0].value < SearchBest[ThreadId][0].value))) {*/
-
-  if (ThreadId == 0) {  // Norman Schmidt (kranium): multi-pv fix
+  if (ThreadId == 0)
+#endif
+	{  // Norman Schmidt (kranium): multi-pv fix
 
     move = SearchBest[ThreadId][SearchCurrent[ThreadId]->multipv].move;
     value = SearchBest[ThreadId][SearchCurrent[ThreadId]->multipv].value;
@@ -713,17 +720,8 @@ void search_update_best(int ThreadId)
   }
 
   // update time-management info
-
-/*   danger = false;
-   for (i = 1; i < NumberThreads; i++){
-     if (SearchBest[0][0].depth < SearchBest[i][0].depth ||
-         (SearchBest[0][0].depth == SearchBest[i][0].depth &&
-        SearchBest[0][0].value < SearchBest[i][0].value)){
-       danger = true;
-     }
-   }*/
-
-  if (UseBad && ThreadId == 0 && SearchBest[ThreadId][SearchCurrent[ThreadId]->multipv].depth > 1) {
+  if (UseBad && ThreadId == 0 && SearchBest[ThreadId][SearchCurrent[ThreadId]->multipv].depth > 1)
+	{
     if (SearchBest[ThreadId][SearchCurrent[ThreadId]->multipv].value <= SearchRoot[ThreadId]->last_value - BadThreshold) {
       SearchRoot[ThreadId]->bad_1 = true;
       SearchRoot[ThreadId]->easy = false;
@@ -733,10 +731,12 @@ void search_update_best(int ThreadId)
       SearchRoot[ThreadId]->bad_1 = false;
     }
   }
+#ifdef MULTITHREAD_ENABLED
 #ifdef _WIN32
   LeaveCriticalSection(&CriticalSection);
 #else
   pthread_mutex_unlock(&CriticalSection);
+#endif
 #endif
 }
 

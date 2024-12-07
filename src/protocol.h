@@ -1,9 +1,11 @@
 
 // protocol.h
+#ifdef MULTITHREAD_ENABLED
 #ifdef _WIN32
 #include <windows.h>
 #else
 #include <pthread.h>
+#endif
 #endif
 
 #ifndef PROTOCOL_H
@@ -13,11 +15,13 @@
 
 #include "util.h"
 
+#ifdef MULTITHREAD_ENABLED
 // variables
 #ifdef _WIN32
 extern CRITICAL_SECTION CriticalSection; 
 #else
 extern  pthread_mutex_t CriticalSection;
+#endif
 #endif
 
 // functions

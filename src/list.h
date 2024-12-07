@@ -27,9 +27,9 @@ const int ListSize = 256;
 // types
 
 struct list_t {
+   alignas(32) uint16 move[ListSize];
+   alignas(32) sint16 value[ListSize];
    int size;
-   uint16 move[ListSize];
-   sint16 value[ListSize];
 };
 
 typedef bool (*move_test_t) (int move, board_t * board);

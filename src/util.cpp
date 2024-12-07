@@ -1,8 +1,3 @@
-
-// util.cpp
-
-// includes
-
 #include <cctype>
 #include <cerrno>
 #include <cmath>
@@ -15,24 +10,15 @@
 #include "posix.h"
 #include "util.h"
 
-// functions
-
-// util_init()
-
-void util_init() {
-
-   setvbuf(stdin,NULL,_IONBF,0);
-   setvbuf(stdout,NULL,_IONBF,0); // _IOLBF breaks on Windows!
+void util_init()
+{
+  setvbuf(stdin,NULL,_IONBF,0);
+  setvbuf(stdout,NULL,_IONBF,0); // _IOLBF breaks on Windows!
 }
-
-// my_random_init()
-
-void my_random_init() {
-
-   srand(time(NULL));
+void my_random_init()
+{
+  srand(time(NULL));
 }
-
-// my_random()
 
 int my_random(int n) {
 
@@ -290,6 +276,7 @@ double my_timer_cpu_usage(const my_timer_t * timer) {
    return usage;
 }
 
+#ifdef MULTITHREAD_ENABLED
 #ifndef _WIN32
 
 // The standard semaphore functions sem_init,sem_post,sem_wait, etc...
@@ -326,7 +313,7 @@ void my_sem_wait(my_sem_t *sem){
     pthread_mutex_unlock(&(sem->mutex));
 }
 #endif
-
+#endif
 
 
 // end of util.cpp
