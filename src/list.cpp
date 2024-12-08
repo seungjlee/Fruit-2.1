@@ -104,7 +104,7 @@ bool list_contain(const list_t * list, int move)
   X256<uint16_t> match((uint16_t)move);
   FOR_STREAM_TYPE(p, list->size, uint16_t) {
     X256<uint16_t> mask = X256<uint16_t>(p) == match;
-    if (Sum<X256<int64_t>::Increment>(reinterpret_cast<const int64_t*>(mask.pData())) != 0)
+    if (MTL::Array<X256<int64_t>::Increment, int64_t>::Or(reinterpret_cast<const int64_t*>(mask.pData())) != 0)
       return true;
   }
 #endif
