@@ -248,7 +248,9 @@ void search()
     save_multipv[i].value = 0;
     save_multipv[i].time = 0;
     save_multipv[i].node_nb = 0;
+#ifdef DUMP_MULTIPV_RESULTS
     strcpy(save_multipv[i].pv_string, "");
+#endif
   }
 
   SearchInput->multipv = option_get_int("MultiPV") - 1;
