@@ -55,9 +55,7 @@ struct material_info_t {
 
 extern void material_init     ();
 extern void material_parameter();
-
-extern void material_alloc    ();
-extern void material_free    ();
+extern void material_free     ();
 extern void material_clear    (int ThreadId);
 
 extern void material_get_info (material_info_t * info, const board_t * board, int ThreadId);

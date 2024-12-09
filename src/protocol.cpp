@@ -134,10 +134,8 @@ static void init() {
       trans_alloc(Trans);
 
       pawn_init();
-      pawn_alloc();
 
       material_init();
-      material_alloc();
 
       pst_init();
       eval_init();
@@ -648,8 +646,8 @@ static void parse_setoption(char string[]) {
        material_free();
        NumberThreads=option_get_int("Number of Threads");
        if(NumberThreads>MaxThreads) NumberThreads=MaxThreads;
-       pawn_alloc();
-       material_alloc();
+       pawn_init();
+       material_init();
        search_clear();
        start_suspend_threads();
      }

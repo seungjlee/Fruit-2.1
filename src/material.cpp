@@ -19,7 +19,7 @@
 // constants
 
 static const bool UseTable = true;
-static const uint32 TableSize = 16384; // Must be a power of 2.
+static const uint32 TableSize = 8192; // Must be a power of 2.
 
 static const int PawnPhase   = 0;
 static const int KnightPhase = 1;
@@ -98,32 +98,11 @@ void material_parameter() {
 
 void material_init() {
 
-	int ThreadId;
-
-   // UCI options
-
    material_parameter();
 
    // material table
-
-	for (ThreadId = 0; ThreadId < NumberThreads; ThreadId++){
-		Material[ThreadId]->size = 0;
-		Material[ThreadId]->mask = 0;
-		Material[ThreadId]->table = NULL;
-	}
-}
-
-// material_alloc()
-
-void material_alloc() {
-
-	int ThreadId;
-
-   ASSERT(sizeof(entry_t)==16);
-
    if (UseTable) {
-
-		for (ThreadId = 0; ThreadId < NumberThreads; ThreadId++){
+		for (int ThreadId = 0; ThreadId < NumberThreads; ThreadId++){
 			Material[ThreadId]->size = TableSize;
 			Material[ThreadId]->mask = TableSize - 1;
 			Material[ThreadId]->table = (entry_t *) my_malloc((uint64) Material[ThreadId]->size*sizeof(entry_t));
@@ -144,7 +123,9 @@ void material_free() {
    if (UseTable) {
 
 		for (ThreadId = 0; ThreadId < NumberThreads; ThreadId++){
-        printf("Thread %d - Material table used: %d\n", ThreadId, Material[ThreadId]->used);
+        printf("Thread %d - Material table [used,collisions,hits]: %d,%lld,%lld  %lf\n",
+               ThreadId, Material[ThreadId]->used, Material[ThreadId]->write_collision, Material[ThreadId]->read_hit,
+               Material[ThreadId]->read_hit/double(Material[ThreadId]->used+Material[ThreadId]->write_collision+Material[ThreadId]->read_hit));
 		  my_free(Material[ThreadId]->table);
 		}
    }
@@ -168,25 +149,25 @@ void material_clear(int ThreadId) {
 // material_get_info()
 
 void material_get_info(material_info_t * info, const board_t * board, int ThreadId) {
-
    uint64 key;
    entry_t * entry;
 
    ASSERT(info!=NULL);
    ASSERT(board!=NULL);
 
-   // probe
-
    if (UseTable) {
-
+#ifdef RECORD_CACHE_STATS
       Material[ThreadId]->read_nb++;
+#endif
 
       key = board->material_key;
       entry = &Material[ThreadId]->table[KEY_INDEX(key)&Material[ThreadId]->mask];
 
       if (entry->lock == KEY_LOCK(key)) {
          // found
+#ifdef RECORD_CACHE_STATS
          Material[ThreadId]->read_hit++;
+#endif
          *info = *entry;
          return;
       }
@@ -200,6 +181,7 @@ void material_get_info(material_info_t * info, const board_t * board, int Thread
 
    if (UseTable) {
 
+#ifdef RECORD_CACHE_STATS
       Material[ThreadId]->write_nb++;
 
       if (entry->lock == 0) { // HACK: assume free entry
@@ -207,6 +189,7 @@ void material_get_info(material_info_t * info, const board_t * board, int Thread
       } else {
          Material[ThreadId]->write_collision++;
       }
+#endif
 
       *entry = *info;
       entry->lock = KEY_LOCK(key);
