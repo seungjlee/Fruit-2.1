@@ -48,7 +48,7 @@ int main(int argc, char * argv[]) {
    attack_init();
    move_do_init();
 
-   random_init();
+   //random_init();
    
    trans_init(Trans);
    hash_init();

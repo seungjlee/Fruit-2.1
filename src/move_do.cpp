@@ -106,7 +106,7 @@ void move_do(board_t * board, int move, undo_t * undo) {
    // update turn
 
    board->turn = opp;
-   board->key ^= RANDOM_64(RandomTurn);
+   board->key ^= RandomLinearCongruential(RandomTurn);
 
    // update castling rights
 
@@ -119,7 +119,7 @@ void move_do(board_t * board, int move, undo_t * undo) {
    // update en-passant square
 
    if ((sq=board->ep_square) != SquareNone) {
-      board->key ^= RANDOM_64(RandomEnPassant+SQUARE_FILE(sq)-FileA);
+      board->key ^= RandomLinearCongruential(RandomEnPassant+SQUARE_FILE(sq)-FileA);
       board->ep_square = SquareNone;
    }
 
@@ -131,7 +131,7 @@ void move_do(board_t * board, int move, undo_t * undo) {
          pawn = PAWN_MAKE(opp);
          if (board->square[to-1] == pawn || board->square[to+1] == pawn) {
             board->ep_square = (from + to) / 2;
-            board->key ^= RANDOM_64(RandomEnPassant+SQUARE_FILE(to)-FileA);
+            board->key ^= RandomLinearCongruential(RandomEnPassant+SQUARE_FILE(to)-FileA);
          }
       }
    }
@@ -344,13 +344,13 @@ void move_do_null(board_t * board, undo_t * undo) {
    // update turn
 
    board->turn = COLOUR_OPP(board->turn);
-   board->key ^= RANDOM_64(RandomTurn);
+   board->key ^= RandomLinearCongruential(RandomTurn);
 
    // update en-passant square
 
    sq = board->ep_square;
    if (sq != SquareNone) {
-      board->key ^= RANDOM_64(RandomEnPassant+SQUARE_FILE(sq)-FileA);
+      board->key ^= RandomLinearCongruential(RandomEnPassant+SQUARE_FILE(sq)-FileA);
       board->ep_square = SquareNone;
    }
 
@@ -517,14 +517,14 @@ static void square_clear(board_t * board, int square, int piece, bool update) {
 
       // hash key
 
-      hash_xor = RANDOM_64(RandomPiece+(piece_12^1)*64+sq_64); // HACK: ^1 for PolyGlot book
+      hash_xor = RandomLinearCongruential(RandomPiece+(piece_12^1)*64+sq_64); // HACK: ^1 for PolyGlot book
 
       board->key ^= hash_xor;
       if (PIECE_IS_PAWN(piece)) board->pawn_key ^= hash_xor;
 
       // material key
 
-      board->material_key ^= RANDOM_64(piece_12*16+board->number[piece_12]);
+      board->material_key ^= RandomLinearCongruential(piece_12*16+board->number[piece_12]);
    }
 }
 
@@ -650,14 +650,14 @@ static void square_set(board_t * board, int square, int piece, int pos, bool upd
 
       // hash key
 
-      hash_xor = RANDOM_64(RandomPiece+(piece_12^1)*64+sq_64); // HACK: ^1 for PolyGlot book
+      hash_xor = RandomLinearCongruential(RandomPiece+(piece_12^1)*64+sq_64); // HACK: ^1 for PolyGlot book
 
       board->key ^= hash_xor;
       if (PIECE_IS_PAWN(piece)) board->pawn_key ^= hash_xor;
 
       // material key
 
-      board->material_key ^= RANDOM_64(piece_12*16+(board->number[piece_12]-1));
+      board->material_key ^= RandomLinearCongruential(piece_12*16+(board->number[piece_12]-1));
    }
 }
 
@@ -738,7 +738,7 @@ static void square_move(board_t * board, int from, int to, int piece, bool updat
 
       piece_index = RandomPiece + (piece_12^1) * 64; // HACK: ^1 for PolyGlot book
 
-      hash_xor = RANDOM_64(piece_index+to_64) ^ RANDOM_64(piece_index+from_64);
+      hash_xor = RandomLinearCongruential(piece_index+to_64) ^ RandomLinearCongruential(piece_index+from_64);
 
       board->key ^= hash_xor;
       if (PIECE_IS_PAWN(piece)) board->pawn_key ^= hash_xor;

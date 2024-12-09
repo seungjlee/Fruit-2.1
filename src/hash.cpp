@@ -128,11 +128,11 @@ uint64 hash_material_key(const board_t * board) {
 // hash_piece_key()
 
 uint64 hash_piece_key(int piece, int square) {
-
    ASSERT(piece_is_ok(piece));
    ASSERT(SQUARE_IS_OK(square));
 
-   return RANDOM_64(RandomPiece+(PIECE_TO_12(piece)^1)*64+SQUARE_TO_64(square)); // HACK: ^1 for PolyGlot book
+   //return RANDOM_64(RandomPiece+(PIECE_TO_12(piece)^1)*64+SQUARE_TO_64(square)); // HACK: ^1 for PolyGlot book
+   return RandomLinearCongruential((PIECE_TO_12(piece^1)<<6)+SQUARE_TO_64(square));
 }
 
 // hash_castle_key()
@@ -147,7 +147,7 @@ uint64 hash_castle_key(int flags) {
    key = 0;
 
    for (i = 0; i < 4; i++) {
-      if ((flags & (1<<i)) != 0) key ^= RANDOM_64(RandomCastle+i);
+      if ((flags & (1<<i)) != 0) key ^= RandomLinearCongruential(RandomCastle+i);
    }
 
    return key;
@@ -159,7 +159,7 @@ uint64 hash_ep_key(int square) {
 
    ASSERT(SQUARE_IS_OK(square));
 
-   return RANDOM_64(RandomEnPassant+SQUARE_FILE(square)-FileA);
+   return RandomLinearCongruential(RandomEnPassant+SQUARE_FILE(square)-FileA);
 }
 
 // hash_turn_key()
@@ -168,7 +168,7 @@ uint64 hash_turn_key(int colour) {
 
    ASSERT(COLOUR_IS_OK(colour));
 
-   return (COLOUR_IS_WHITE(colour)) ? RANDOM_64(RandomTurn) : 0;
+   return (COLOUR_IS_WHITE(colour)) ? RandomLinearCongruential(RandomTurn) : 0;
 }
 
 // hash_counter_key()
@@ -188,7 +188,7 @@ static uint64 hash_counter_key(int piece_12, int count) {
    // counter
 
    index = piece_12 * 16;
-   for (i = 0; i < count; i++) key ^= RANDOM_64(index+i);
+   for (i = 0; i < count; i++) key ^= RandomLinearCongruential(index+i);
 
    return key;
 }

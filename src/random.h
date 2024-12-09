@@ -7,22 +7,21 @@
 // includes
 
 #include "util.h"
+#include <cstdint>
 
 // constants
 
 const int RandomNb = 781;
 
+// From MMIX by Donald Knuth.
+constexpr uint64_t RandomMultiplier = 6364136223846793005;
+constexpr uint64_t RandomOffset = 1442695040888963407;
+inline uint64_t RandomLinearCongruential(uint64_t x) { return x * RandomMultiplier + RandomOffset; }
+
 // macros
 
-#define RANDOM_64(n) (Random64[n])
+//#define RANDOM_64(n) (RandomLinearCongruential(n))
 
-// "constants"
-
-extern const uint64 Random64[RandomNb];
-
-// functions
-
-extern void random_init ();
 
 #endif // !defined RANDOM_H
 
