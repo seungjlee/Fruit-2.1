@@ -224,12 +224,14 @@ void board_init_list(board_t * board) {
 
    // init
 
-   for (sq = 0; sq < SquareNb; sq++) {
-      board->pos[sq] = -1;
-   }
+   // for (sq = 0; sq < SquareNb; sq++) {
+   //    board->pos[sq] = -1;
+   // }
+   memset(board->pos, 0xFF, sizeof(board->pos));
 
    board->piece_nb = 0;
-   for (piece = 0; piece < 12; piece++) board->number[piece] = 0;
+   //for (piece = 0; piece < 12; piece++) board->number[piece] = 0;
+   memset(board->number, 0, sizeof(board->number));
 
    // piece lists
 
@@ -243,11 +245,15 @@ void board_init_list(board_t * board) {
 
          sq = SQUARE_FROM_64(sq_64);
          piece = board->square[sq];
+#ifdef CHECK_ILLEGAL_BOARD
          if (piece != Empty && !piece_is_ok(piece)) my_fatal("board_init_list(): illegal position\n");
+#endif
 
          if (COLOUR_IS(piece,colour) && !PIECE_IS_PAWN(piece)) {
 
+#ifdef CHECK_ILLEGAL_BOARD
             if (pos >= 16) my_fatal("board_init_list(): illegal position\n");
+#endif
             ASSERT(pos>=0&&pos<16);
 
             board->pos[sq] = pos;
@@ -260,8 +266,10 @@ void board_init_list(board_t * board) {
          }
       }
 
+#ifdef CHECK_ILLEGAL_BOARD
       if (board->number[COLOUR_IS_WHITE(colour)?WhiteKing12:BlackKing12] != 1) my_fatal("board_init_list(): illegal position\n");
-	  if (board->number[WhiteBishop12] >= 10) printf("illegal position!\n");	
+	   if (board->number[WhiteBishop12] >= 10) printf("illegal position!\n");	
+#endif
 
       ASSERT(pos>=1&&pos<=16);
       board->piece[colour][pos] = SquareNone;
@@ -323,7 +331,9 @@ void board_init_list(board_t * board) {
 
          if (COLOUR_IS(piece,colour) && PIECE_IS_PAWN(piece)) {
 
+#ifdef CHECK_ILLEGAL_BOARD
             if (pos >= 8 || SQUARE_IS_PROMOTE(sq)) my_fatal("board_init_list(): illegal position\n");
+#endif
             ASSERT(pos>=0&&pos<8);
 
             board->pos[sq] = pos;
@@ -342,7 +352,9 @@ void board_init_list(board_t * board) {
       board->pawn[colour][pos] = SquareNone;
       board->pawn_size[colour] = pos;
 
+#ifdef CHECK_ILLEGAL_BOARD
       if (board->piece_size[colour] + board->pawn_size[colour] > 16) my_fatal("board_init_list(): illegal position\n");
+#endif
    }
 
    // last square
@@ -365,8 +377,9 @@ void board_init_list(board_t * board) {
    board->material_key = hash_material_key(board);
 
    // legality
-
+#ifdef CHECK_ILLEGAL_BOARD
    if (!board_is_legal(board)) my_fatal("board_init_list(): illegal position\n");
+#endif
 
    // debug
 

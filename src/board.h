@@ -57,7 +57,7 @@ struct board_t {
    int pawn_size[ColourNb];
 
    int piece_nb;
-   int number[16]; // only 12 are needed
+   int number[12]; // only 12 are needed
 
    int pawn_file[ColourNb][FileNb];
 
