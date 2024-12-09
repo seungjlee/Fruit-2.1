@@ -129,7 +129,6 @@ extern bool height_is_ok          (int height);
 
 extern void search_clear          ();
 extern void search                ();
-extern void search_smp            (int ThreadId);
 
 extern void search_update_best    (int ThreadId);
 #ifdef DISPLAY_DIAGNOSTICS

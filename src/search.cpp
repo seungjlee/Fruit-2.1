@@ -234,134 +234,7 @@ void exit_threads()
   SearchInput->exit_engine = false; // hack
 }
 
-// search()
-void search()
-{
-  int move;
-  int i;
-  int ThreadId;
-
-  for (i = 0; i < MultiPVMax; i++) {
-    save_multipv[i].mate = 0;
-    save_multipv[i].depth = 0;
-    save_multipv[i].max_depth = 0;
-    save_multipv[i].value = 0;
-    save_multipv[i].time = 0;
-    save_multipv[i].node_nb = 0;
-#ifdef DUMP_MULTIPV_RESULTS
-    strcpy(save_multipv[i].pv_string, "");
-#endif
-  }
-
-  SearchInput->multipv = option_get_int("MultiPV") - 1;
-
-  for (ThreadId = 0; ThreadId < NumberThreads; ThreadId++) {
-    SearchCurrent[ThreadId]->multipv = 0;
-  }
-
-
-  ASSERT(board_is_ok(SearchInput->board));
-
-  // opening book
-
-#ifdef USE_OPENING_BOOK
-  if (option_get_bool("OwnBook") && !SearchInput->infinite) {
-
-    move = book_move(SearchInput->board);
-
-    if (move != MoveNone) {
-
-      // play book move
-
-      SearchBest[0][SearchCurrent[ThreadId]->multipv].move = move;
-      SearchBest[0][SearchCurrent[ThreadId]->multipv].value = 1;
-      SearchBest[0][SearchCurrent[ThreadId]->multipv].flags = SearchExact;
-      SearchBest[0][SearchCurrent[ThreadId]->multipv].depth = 1;
-      SearchBest[0][SearchCurrent[ThreadId]->multipv].pv[0] = move;
-      SearchBest[0][SearchCurrent[ThreadId]->multipv].pv[1] = MoveNone;
-
-      search_update_best(0);
-
-      return;
-    }
-  }
-#endif
-
-  // SearchInput
-
-  gen_legal_moves(SearchInput->list, SearchInput->board);
-
-  if (LIST_SIZE(SearchInput->list) < SearchInput->multipv + 1) {
-    SearchInput->multipv = LIST_SIZE(SearchInput->list) - 1;
-  }
-
-  if (LIST_SIZE(SearchInput->list) <= 1) {
-    SearchInput->depth_is_limited = true;
-    SearchInput->depth_limit = 4; // was 1
-  }
-
-  trans_inc_date(Trans);
-
-#ifdef MULTITHREAD_ENABLED
-  // resume threads
-  resume_threads();
-#endif
-
-  //SearchInfo_smp->stop = true;
-  search_smp(0);
-
-#ifdef MULTITHREAD_ENABLED
-  for (ThreadId = 1; ThreadId < NumberThreads; ThreadId++) { // stop threads
-    SearchInfo[ThreadId]->stop = true;
-  }
-
-  bool all_stopped = false;
-  while (!all_stopped) {
-    all_stopped = true;
-    for (ThreadId = 1; ThreadId < NumberThreads; ThreadId++) {
-      if (!SearchInfo[ThreadId]->stopped)
-        all_stopped = false;
-    }
-  }
-#endif
-}
-
-#ifdef _WIN32
-unsigned __stdcall search_thread(void *param)
-{
-  int ThreadId = *((int*)param);
-  SearchInfo[ThreadId]->exited = false;
-
-  while (!SearchInput->exit_engine) {
-    search_smp(ThreadId);
-    SearchInfo[ThreadId]->stopped = true;
-    SuspendThread(threat_handle[ThreadId - 1]);
-  }
-  SearchInfo[ThreadId]->exited = true;
-  _endthreadex(0);
-  return 0;
-}
-#else
-void* search_thread(void* param)
-{
-#ifdef MULTITHREAD_ENABLED
-	int ThreadId = *((int*)param);
-	SearchInfo[ThreadId]->exited= false;
-	my_sem_wait(&(thread_runnable[ThreadId-1]));
-	while (!SearchInput->exit_engine){
-	  search_smp(ThreadId);
-	  SearchInfo[ThreadId]->stopped = true;
-	  my_sem_wait(&(thread_runnable[ThreadId-1]));
-	}
-	SearchInfo[ThreadId]->exited= true;
-#endif
-	return NULL;
-}
-#endif
-
-// search_smp()
-
-void search_smp(int ThreadId)
+static void search_smp(int ThreadId)
 {
   int depth;
   int i;
@@ -594,6 +467,136 @@ void search_smp(int ThreadId)
   }
 #endif
 }
+
+// search()
+void search()
+{
+  int move;
+  int i;
+  int ThreadId;
+
+  memset(save_multipv, 0, sizeof(save_multipv));
+
+  for (i = 0; i < MultiPVMax; i++) {
+    // save_multipv[i].mate = 0;
+    // save_multipv[i].depth = 0;
+    // save_multipv[i].max_depth = 0;
+    // save_multipv[i].value = 0;
+    // save_multipv[i].time = 0;
+    // save_multipv[i].node_nb = 0;
+#ifdef DUMP_MULTIPV_RESULTS
+    strcpy(save_multipv[i].pv_string, "");
+#endif
+  }
+
+  SearchInput->multipv = option_get_int("MultiPV") - 1;
+
+#ifdef MULTITHREAD_ENABLED
+  for (ThreadId = 0; ThreadId < NumberThreads; ThreadId++) {
+    SearchCurrent[ThreadId]->multipv = 0;
+  }
+#else
+  SearchCurrent[0]->multipv = 0;
+#endif
+
+  ASSERT(board_is_ok(SearchInput->board));
+
+  // opening book
+
+#ifdef USE_OPENING_BOOK
+  if (option_get_bool("OwnBook") && !SearchInput->infinite) {
+
+    move = book_move(SearchInput->board);
+
+    if (move != MoveNone) {
+
+      // play book move
+
+      SearchBest[0][SearchCurrent[ThreadId]->multipv].move = move;
+      SearchBest[0][SearchCurrent[ThreadId]->multipv].value = 1;
+      SearchBest[0][SearchCurrent[ThreadId]->multipv].flags = SearchExact;
+      SearchBest[0][SearchCurrent[ThreadId]->multipv].depth = 1;
+      SearchBest[0][SearchCurrent[ThreadId]->multipv].pv[0] = move;
+      SearchBest[0][SearchCurrent[ThreadId]->multipv].pv[1] = MoveNone;
+
+      search_update_best(0);
+
+      return;
+    }
+  }
+#endif
+
+  // SearchInput
+
+  gen_legal_moves(SearchInput->list, SearchInput->board);
+
+  if (LIST_SIZE(SearchInput->list) < SearchInput->multipv + 1) {
+    SearchInput->multipv = LIST_SIZE(SearchInput->list) - 1;
+  }
+
+  if (LIST_SIZE(SearchInput->list) <= 1) {
+    SearchInput->depth_is_limited = true;
+    SearchInput->depth_limit = 4; // was 1
+  }
+
+  trans_inc_date(Trans);
+
+#ifdef MULTITHREAD_ENABLED
+  // resume threads
+  resume_threads();
+#endif
+
+  //SearchInfo_smp->stop = true;
+  search_smp(0);
+
+#ifdef MULTITHREAD_ENABLED
+  for (ThreadId = 1; ThreadId < NumberThreads; ThreadId++) { // stop threads
+    SearchInfo[ThreadId]->stop = true;
+  }
+
+  bool all_stopped = false;
+  while (!all_stopped) {
+    all_stopped = true;
+    for (ThreadId = 1; ThreadId < NumberThreads; ThreadId++) {
+      if (!SearchInfo[ThreadId]->stopped)
+        all_stopped = false;
+    }
+  }
+#endif
+}
+
+#ifdef _WIN32
+unsigned __stdcall search_thread(void *param)
+{
+  int ThreadId = *((int*)param);
+  SearchInfo[ThreadId]->exited = false;
+
+  while (!SearchInput->exit_engine) {
+    search_smp(ThreadId);
+    SearchInfo[ThreadId]->stopped = true;
+    SuspendThread(threat_handle[ThreadId - 1]);
+  }
+  SearchInfo[ThreadId]->exited = true;
+  _endthreadex(0);
+  return 0;
+}
+#else
+void* search_thread(void* param)
+{
+#ifdef MULTITHREAD_ENABLED
+	int ThreadId = *((int*)param);
+	SearchInfo[ThreadId]->exited= false;
+	my_sem_wait(&(thread_runnable[ThreadId-1]));
+	while (!SearchInput->exit_engine){
+	  search_smp(ThreadId);
+	  SearchInfo[ThreadId]->stopped = true;
+	  my_sem_wait(&(thread_runnable[ThreadId-1]));
+	}
+	SearchInfo[ThreadId]->exited= true;
+#endif
+	return NULL;
+}
+#endif
 
 // search_update_best()
 
