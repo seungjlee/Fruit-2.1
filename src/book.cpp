@@ -114,14 +114,13 @@ int book_move(board_t * board) {
       }
 
       if (best_move != MoveNone) {
-
          // convert PolyGlot move into Fruit move; TODO: handle promotes
-
          gen_legal_moves(list,board);
 
          for (i = 0; i < list->size; i++) {
-            move = list->move[i];
-            if ((move & 07777) == best_move) return move;
+            move = LIST_MOVE(list, i);
+            if ((move & 07777) == best_move)
+               return move;
          }
       }
    }

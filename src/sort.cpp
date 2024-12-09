@@ -678,7 +678,7 @@ void note_moves(list_t * list, const board_t * board, int height, int trans_kill
    if (size >= 2) {
       for (i = 0; i < size; i++) {
          move = LIST_MOVE(list,i);
-         list->value[i] = move_value(move,board,height,trans_killer,ThreadId);
+         LIST_VALUE(list,i) = move_value(move,board,height,trans_killer,ThreadId);
       }
    }
 }
@@ -698,7 +698,7 @@ static void note_captures(list_t * list, const board_t * board) {
    if (size >= 2) {
       for (i = 0; i < size; i++) {
          move = LIST_MOVE(list,i);
-         list->value[i] = capture_value(move,board);
+         LIST_VALUE(list,i) = capture_value(move,board);
       }
    }
 }
@@ -718,7 +718,7 @@ static void note_quiet_moves(list_t * list, const board_t * board, int ThreadId)
    if (size >= 2) {
       for (i = 0; i < size; i++) {
          move = LIST_MOVE(list,i);
-         list->value[i] = quiet_move_value(move,board,ThreadId);
+         LIST_VALUE(list,i) = quiet_move_value(move,board,ThreadId);
       }
    }
 }
@@ -738,7 +738,7 @@ static void note_moves_simple(list_t * list, const board_t * board) {
    if (size >= 2) {
       for (i = 0; i < size; i++) {
          move = LIST_MOVE(list,i);
-         list->value[i] = move_value_simple(move,board);
+         LIST_VALUE(list,i) = move_value_simple(move,board);
       }
    }
 }
@@ -758,7 +758,7 @@ static void note_mvv_lva(list_t * list, const board_t * board) {
    if (size >= 2) {
       for (i = 0; i < size; i++) {
          move = LIST_MOVE(list,i);
-         list->value[i] = mvv_lva(move,board);
+         LIST_VALUE(list,i) = mvv_lva(move,board);
       }
    }
 }

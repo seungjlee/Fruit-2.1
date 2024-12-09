@@ -6,7 +6,12 @@
                 "${workspaceFolder}/**",
                 "/home/sjlee/MTL/include"
             ],
-            "defines": [],
+            "defines": [
+                "DUMP_SEARCH_STATS",
+                "DUMP_MULTIPV_RESULTS",
+                "USE_MTL",
+                "DMTL_ENABLE_AVX"
+            ],
             "compilerPath": "/usr/bin/gcc",
             "cStandard": "c17",
             "cppStandard": "gnu++17",

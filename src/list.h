@@ -4,31 +4,29 @@
 #ifndef LIST_H
 #define LIST_H
 
-// includes
-
+#include <cstdint>
+#include <tuple>
 #include "board.h"
 #include "util.h"
 
 // constants
-
 const int ListSize = 256;
 
 // macros
 
 #define LIST_CLEAR(list)     ((list)->size=0)
-#define LIST_ADD(list,mv)    ((list)->move[(list)->size++]=(mv))
+#define LIST_ADD(list,mv)    (std::get<0>(list->move_value[list->size++])=mv)
 
 #define LIST_IS_EMPTY(list)  ((list)->size==0)
 #define LIST_SIZE(list)      ((list)->size)
 
-#define LIST_MOVE(list,pos)  ((list)->move[pos])
-#define LIST_VALUE(list,pos) ((list)->value[pos])
+#define LIST_MOVE(list,pos)  (std::get<0>(list->move_value[pos]))
+#define LIST_VALUE(list,pos) (std::get<1>(list->move_value[pos]))
 
 // types
 
 struct list_t {
-   alignas(32) uint16 move[ListSize];
-   alignas(32) sint16 value[ListSize];
+   alignas(32) std::tuple<int16_t,int16_t> move_value[ListSize];
    int size;
 };
 

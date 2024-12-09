@@ -285,7 +285,8 @@ static int full_root(list_t * list, board_t * board, int alpha, int beta, int de
    SearchCurrent[ThreadId]->do_nullmove = true;
 
    if (SearchCurrent[ThreadId]->multipv == 0)
-	  for (i = 0; i < LIST_SIZE(list); i++) list->value[i] = ValueNone;
+	  for (i = 0; i < LIST_SIZE(list); i++)
+       LIST_VALUE(list,i) = ValueNone;
 
    old_alpha = alpha;
    best_value[SearchCurrent[ThreadId]->multipv] = ValueNone;
@@ -336,11 +337,11 @@ static int full_root(list_t * list, board_t * board, int alpha, int beta, int de
       move_undo(board,move,undo);
 
       if (value <= alpha) { // upper bound
-         list->value[i] = old_alpha;
+         LIST_VALUE(list,i) = old_alpha;
       } else if (value >= beta) { // lower bound
-         list->value[i] = beta;
+         LIST_VALUE(list,i) = beta;
       } else { // alpha < value < beta => exact value
-         list->value[i] = value;
+         LIST_VALUE(list,i) = value;
       }
 
       if (value > best_value[SearchCurrent[ThreadId]->multipv] && (best_value[SearchCurrent[ThreadId]->multipv] == ValueNone || value > alpha)) {

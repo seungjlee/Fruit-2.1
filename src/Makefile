@@ -28,7 +28,8 @@ CXXFLAGS += -fno-exceptions -fno-rtti
 
 # optimisation
 
-CXXFLAGS += -O3 -fstrict-aliasing
+CXXFLAGS += -O3
+CXXFLAGS += -fstrict-aliasing
 CXXFLAGS += -fomit-frame-pointer
 CXXFLAGS += -std=c++17 -mavx -mavx2 -mfma
 CXXFLAGS += -DDUMP_SEARCH_STATS -DDUMP_MULTIPV_RESULTS
