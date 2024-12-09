@@ -24,12 +24,12 @@ LDFLAGS  = -lm
 
 # C++
 
-CXXFLAGS += -fno-exceptions -fno-rtti
 
 # optimisation
 
+#CXXFLAGS += -g
 CXXFLAGS += -O3 -fstrict-aliasing
-CXXFLAGS += -fomit-frame-pointer
+CXXFLAGS += -fomit-frame-pointer -fno-exceptions -fno-rtti
 CXXFLAGS += -std=c++17 -mavx -mavx2 -mfma
 CXXFLAGS += -DDUMP_SEARCH_STATS -DDUMP_MULTIPV_RESULTS
 CXXFLAGS += -DUSE_MTL -DMTL_ENABLE_AVX

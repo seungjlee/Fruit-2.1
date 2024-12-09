@@ -58,7 +58,7 @@ static bool Delay; // postpone "bestmove" in infinite/ponder mode?
 // prototypes
 
 static void init              ();
-static void loop_step         ();
+static int loop_step          ();
 
 static void parse_go          (char string[]);
 static void parse_position    (char string[]);
@@ -103,7 +103,13 @@ void loop() {
 
    // loop
 
-   while (true) loop_step();
+   int status = 0;
+   while (status == 0)
+      status = loop_step();
+
+   trans_free(Trans);
+   pawn_free();
+   material_free();
 }
 
 // init()
@@ -181,7 +187,7 @@ static void OptimizedSearch(char* command) {
 
 // loop_step()
 
-static void loop_step() {
+static int loop_step() {
 
    char string[65536];
 	int ThreadId;
@@ -257,7 +263,8 @@ static void loop_step() {
 
 	  SearchInput->exit_engine = true;
 	  resume_threads();
-      exit(EXIT_SUCCESS);
+      //exit(EXIT_SUCCESS);
+      return -1;
 
    } else if (string_start_with(string,"setoption ")) {
 
@@ -311,6 +318,7 @@ static void loop_step() {
          ASSERT(false);
       }
    }
+   return 0;
 }
 
 // parse_go()

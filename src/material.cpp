@@ -19,7 +19,7 @@
 // constants
 
 static const bool UseTable = true;
-static const uint32 TableSize = 256; // was 256 4kB tried 16384
+static const uint32 TableSize = 16384; // Must be a power of 2.
 
 static const int PawnPhase   = 0;
 static const int KnightPhase = 1;
@@ -144,6 +144,7 @@ void material_free() {
    if (UseTable) {
 
 		for (ThreadId = 0; ThreadId < NumberThreads; ThreadId++){
+        printf("Thread %d - Material table used: %d\n", ThreadId, Material[ThreadId]->used);
 		  my_free(Material[ThreadId]->table);
 		}
    }
@@ -184,13 +185,9 @@ void material_get_info(material_info_t * info, const board_t * board, int Thread
       entry = &Material[ThreadId]->table[KEY_INDEX(key)&Material[ThreadId]->mask];
 
       if (entry->lock == KEY_LOCK(key)) {
-
          // found
-
          Material[ThreadId]->read_hit++;
-
          *info = *entry;
-
          return;
       }
    }

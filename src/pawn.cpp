@@ -18,8 +18,8 @@
 
 // constants
 
-static const bool UseTable = true;
-static const uint32 TableSize = 16384; // was 16384 256kB tried 65536 
+static constexpr bool UseTable = true;
+static constexpr uint32 TableSize = 65536; // was 16384 256kB tried 65536 
 
 // types
 
@@ -243,10 +243,9 @@ void pawn_free() {
    ASSERT(sizeof(entry_t)==16);
 
    if (UseTable) {
-		
-                for (ThreadId = 0; ThreadId < NumberThreads; ThreadId++){
-
-		  my_free(Pawn[ThreadId]->table);
+      printf("Thread %d - Pawn table used: %d\n", ThreadId, Pawn[ThreadId]->used);
+      for (ThreadId = 0; ThreadId < NumberThreads; ThreadId++){
+		   my_free(Pawn[ThreadId]->table);
 		}
    }
 }
