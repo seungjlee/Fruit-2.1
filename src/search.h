@@ -39,8 +39,9 @@ struct search_multipv_t {
    int value;
    double time;
    sint64 node_nb;
+#ifdef DUMP_MULTIPV_RESULTS
    char pv_string[512];
-
+#endif
 };
 
 struct search_param_t {
@@ -131,7 +132,9 @@ extern void search                ();
 extern void search_smp            (int ThreadId);
 
 extern void search_update_best    (int ThreadId);
+#ifdef DISPLAY_DIAGNOSTICS
 extern void search_update_root    (int ThreadId);
+#endif
 extern void search_update_current (int ThreadId);
 
 extern void search_check          (int ThreadId);

@@ -40,17 +40,19 @@
 
 // constants
 
-static const bool UseCpuTime = false; // false
+static constexpr bool UseCpuTime = false; // false
 static const bool UseEvent = true; // true
 
 static const bool UseShortSearch = true;
 static const int ShortSearchDepth = 1;
 
+#ifdef DISPLAY_DIAGNOSTICS
 static const bool DispBest = false; // true
 static const bool DispDepthStart = false; // true
 static const bool DispDepthEnd = false; // true
 static const bool DispRoot = false; // true
 static const bool DispStat = false; // true
+#endif
 
 static const bool UseEasy = true; // singular move
 static const int EasyThreshold = 150;
@@ -416,7 +418,9 @@ void search_smp(int ThreadId)
       delta = 16;
       for (SearchCurrent[ThreadId]->multipv = 0; SearchCurrent[ThreadId]->multipv <= SearchInput->multipv; SearchCurrent[ThreadId]->multipv++)
 			{
+#ifdef DISPLAY_DIAGNOSTICS
         if (DispDepthStart && SearchCurrent[ThreadId]->multipv == 0) send("info depth %d", depth);
+#endif
 
         SearchRoot[ThreadId]->bad_1 = false;
         SearchRoot[ThreadId]->change = false;
@@ -475,9 +479,11 @@ void search_smp(int ThreadId)
           speed += SearchCurrent[i]->speed;
         }
 
+#ifdef DISPLAY_DIAGNOSTICS
         if (DispDepthEnd && SearchCurrent[ThreadId]->multipv == SearchInput->multipv) {
           send("info depth %d seldepth %d time %.0f nodes " S64_FORMAT " nps %.0f", depth, SearchCurrent[ThreadId]->max_depth, SearchCurrent[ThreadId]->time*1000.0, node_nb, speed);
         }
+#endif
 
         // update search info
 
@@ -597,7 +603,9 @@ void search_update_best(int ThreadId)
   sint64 node_nb;
   int mate, i, z;
   bool found;
-  char move_string[256], pv_string[512];
+#ifdef DUMP_MULTIPV_RESULTS
+  char pv_string[512];
+#endif
 
   search_update_current(ThreadId);
 
@@ -623,8 +631,10 @@ void search_update_best(int ThreadId)
     time = SearchCurrent[ThreadId]->time;
     node_nb = SearchCurrent[ThreadId]->node_nb;
 
-    move_to_string(move, move_string, 256);
+    //move_to_string(move, move_string, 256);
+#ifdef DUMP_MULTIPV_RESULTS
     pv_to_string(pv, pv_string, 512);
+#endif
 
     mate = value_to_mate(value);
 
@@ -635,7 +645,9 @@ void search_update_best(int ThreadId)
       save_multipv[SearchCurrent[ThreadId]->multipv].value = value;
       save_multipv[SearchCurrent[ThreadId]->multipv].time = time * 1000.0;
       save_multipv[SearchCurrent[ThreadId]->multipv].node_nb = node_nb;
+#ifdef DUMP_MULTIPV_RESULTS
       strcpy(save_multipv[SearchCurrent[ThreadId]->multipv].pv_string, pv_string);
+#endif
     }
     else {
       found = false;
@@ -654,7 +666,9 @@ void search_update_best(int ThreadId)
           save_multipv[z].value = save_multipv[z - 1].value;
           save_multipv[z].time = save_multipv[z - 1].time;
           save_multipv[z].node_nb = save_multipv[z - 1].node_nb;
+#ifdef DUMP_MULTIPV_RESULTS
           strcpy(save_multipv[z].pv_string, save_multipv[z - 1].pv_string);
+#endif
         }
 
         save_multipv[i].mate = mate;
@@ -663,7 +677,9 @@ void search_update_best(int ThreadId)
         save_multipv[i].value = value;
         save_multipv[i].time = time * 1000.0;
         save_multipv[i].node_nb = node_nb;
+#ifdef DUMP_MULTIPV_RESULTS
         strcpy(save_multipv[i].pv_string, pv_string);
+#endif
 
       }
       else {
@@ -673,7 +689,9 @@ void search_update_best(int ThreadId)
         save_multipv[SearchCurrent[ThreadId]->multipv].value = value;
         save_multipv[SearchCurrent[ThreadId]->multipv].time = time * 1000.0;
         save_multipv[SearchCurrent[ThreadId]->multipv].node_nb = node_nb;
+#ifdef DUMP_MULTIPV_RESULTS
         strcpy(save_multipv[SearchCurrent[ThreadId]->multipv].pv_string, pv_string);
+#endif
       }
     }
 
@@ -742,6 +760,7 @@ void search_update_best(int ThreadId)
 
 // search_update_root()
 
+#ifdef DISPLAY_DIAGNOSTICS
 void search_update_root(int ThreadId)
 {
   int move, move_pos, move_nb;
@@ -768,6 +787,7 @@ void search_update_root(int ThreadId)
     }
   }
 }
+#endif
 
 // search_update_current()
 
@@ -778,10 +798,14 @@ void search_update_current(int ThreadId)
   double time, speed, cpu;
 
   timer = SearchCurrent[ThreadId]->timer;
-
   node_nb = SearchCurrent[ThreadId]->node_nb;
-  time = (UseCpuTime) ? my_timer_elapsed_cpu(timer) : my_timer_elapsed_real(timer);
-  speed = (time >= 1.0) ? double(node_nb) / time : 0.0;
+
+  if (UseCpuTime)
+    time = my_timer_elapsed_cpu(timer);
+  else
+    time = my_timer_elapsed_real(timer);
+
+  speed = node_nb / (time+1e-16);
   cpu = my_timer_cpu_usage(timer);
 
   SearchCurrent[ThreadId]->time = time;
@@ -794,7 +818,11 @@ void search_update_current(int ThreadId)
 void search_check(int ThreadId)
 {
   if (ThreadId == 0) {
+#ifdef DISPLAY_DIAGNOSTICS
     search_send_stat(ThreadId);
+#else
+    search_update_current(ThreadId);
+#endif
 
     if (UseEvent) event();
 
@@ -838,6 +866,7 @@ static void search_send_stat(int ThreadId)
 
   search_update_current(ThreadId);
 
+#ifdef DISPLAY_DIAGNOSTICS
   if (DispStat && ThreadId == 0 && SearchCurrent[ThreadId]->time >= SearchInfo[ThreadId]->last_time + 1.0) { // at least one-second gap
 
     SearchInfo[ThreadId]->last_time = SearchCurrent[ThreadId]->time;
@@ -856,6 +885,7 @@ static void search_send_stat(int ThreadId)
 
     trans_stats(Trans);
   }
+#endif
 }
 
 // end of search.cpp

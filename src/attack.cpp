@@ -10,6 +10,7 @@
 #include "piece.h"
 #include "util.h"
 #include "vector.h"
+#include <cstring>
 
 // variables
 
@@ -47,12 +48,14 @@ void attack_init() {
    for (delta = 0; delta < DeltaNb; delta++) {
       DeltaIncLine[delta] = IncNone;
       DeltaIncAll[delta] = IncNone;
-      DeltaMask[delta] = 0;
+      // DeltaMask[delta] = 0;
    }
 
-   for (inc = 0; inc < IncNb; inc++) {
-      IncMask[inc] = 0;
-   }
+   memset(DeltaMask, 0, sizeof(DeltaMask));
+   memset(IncMask, 0, sizeof(IncMask));
+   // for (inc = 0; inc < IncNb; inc++) {
+   //    IncMask[inc] = 0;
+   // }
 
    // pawn attacks
 
@@ -130,9 +133,10 @@ void attack_init() {
 
    // PieceCode[]
 
-   for (piece = 0; piece < PieceNb; piece++) {
-      PieceCode[piece] = -1;
-   }
+   // for (piece = 0; piece < PieceNb; piece++) {
+   //    PieceCode[piece] = -1;
+   // }
+   memset(PieceCode, 0xFF, sizeof(PieceCode));
 
    PieceCode[WN] = 0;
    PieceCode[WB] = 1;
@@ -146,11 +150,12 @@ void attack_init() {
 
    // PieceDeltaSize[][] & PieceDeltaDelta[][][]
 
-   for (piece = 0; piece < 4; piece++) {
-      for (delta = 0; delta < 256; delta++) {
-         PieceDeltaSize[piece][delta] = 0;
-      }
-   }
+   // for (piece = 0; piece < 4; piece++) {
+   //    for (delta = 0; delta < 256; delta++) {
+   //       PieceDeltaSize[piece][delta] = 0;
+   //    }
+   // }
+   memset(PieceDeltaSize, 0, sizeof(PieceDeltaSize));
 
    for (king = 0; king < SquareNb; king++) {
 

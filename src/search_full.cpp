@@ -312,7 +312,9 @@ static int full_root(list_t * list, board_t * board, int alpha, int beta, int de
       SearchRoot[ThreadId]->move_pos = i;
       SearchRoot[ThreadId]->move_nb = LIST_SIZE(list);
 
+#ifdef DISPLAY_DIAGNOSTICS
       search_update_root(ThreadId);
+#endif
 
       new_depth = full_new_depth(depth,move,board,board_is_check(board)&&LIST_SIZE(list)==1,true, height, false, &cap_extended,ThreadId);
 	  //new_depth1 = full_new_depth(depth,move,board,board_is_check(board)&&LIST_SIZE(list)==1,false, height, ThreadId);
@@ -328,8 +330,10 @@ static int full_root(list_t * list, board_t * board, int alpha, int beta, int de
             SearchRoot[ThreadId]->change = true;
             SearchRoot[ThreadId]->easy = false;
             SearchRoot[ThreadId]->flag = false;
+#ifdef DISPLAY_DIAGNOSTICS
             search_update_root(ThreadId);
-			value = -full_search(board,-beta,-alpha,new_depth,height+1,new_pv,NodePV,cap_extended,ThreadId);
+#endif
+           value = -full_search(board,-beta,-alpha,new_depth,height+1,new_pv,NodePV,cap_extended,ThreadId);
          }
       }
 
@@ -346,7 +350,7 @@ static int full_root(list_t * list, board_t * board, int alpha, int beta, int de
       if (value > best_value[SearchCurrent[ThreadId]->multipv] && (best_value[SearchCurrent[ThreadId]->multipv] == ValueNone || value > alpha)) {
 
          SearchBest[ThreadId][SearchCurrent[ThreadId]->multipv].move = move;
-		 SearchBest[ThreadId][SearchCurrent[ThreadId]->multipv].value = value;
+		   SearchBest[ThreadId][SearchCurrent[ThreadId]->multipv].value = value;
          if (value <= alpha) { // upper bound
             SearchBest[ThreadId][SearchCurrent[ThreadId]->multipv].flags = SearchUpper;
          } else if (value >= beta) { // lower bound
